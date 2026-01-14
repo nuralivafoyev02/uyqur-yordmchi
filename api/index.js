@@ -62,7 +62,7 @@ bot.help((ctx) => {
 bot.on(['text', 'photo'], async (ctx, next) => {
     // Buyruqlarni o'tkazib yuborish
     if (ctx.chat.type !== 'private' || (ctx.message.text && ctx.message.text.startsWith('/'))) return next();
-    
+
     const userId = ctx.from.id;
     const type = ctx.message.photo ? 'photo' : 'text';
     const content = ctx.message.photo ? ctx.message.photo[ctx.message.photo.length - 1].file_id : ctx.message.text;
@@ -72,13 +72,13 @@ bot.on(['text', 'photo'], async (ctx, next) => {
         // Supabase-ga to'g'ridan-to'g'ri yozish
         const { error } = await supabase
             .from('reports')
-            .insert([{ 
-                user_id: userId, 
-                type: type, 
-                content: content, 
-                caption: caption 
+            .insert([{
+                user_id: userId,
+                type: type,
+                content: content,
+                caption: caption
             }]);
-        
+
         if (error) throw error; // Agar Supabase xato qaytarsa catch blokiga o'tadi
 
         ctx.reply("📥 Saqlandi. Mini App orqali ko'rishingiz mumkin.");
@@ -151,7 +151,8 @@ bot.action('confirm_send', async (ctx) => {
         // 3️⃣ Supabase — hisobot saqlash
         await supabase.from('reports').insert({
             user_id: userId,
-            content: reports,
+            content: JSON.stringify(reports), // Massivni matnga o'girib saqlaymiz
+            type: 'final_report',             // Yakuniy hisobot ekanligini bildirish
             sent_at: moment().tz(TIMEZONE).toISOString()
         });
 
