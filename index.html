@@ -68,13 +68,13 @@
 
         const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const userId = tg.initDataUnsafe.user?.id;
         document.getElementById('user-name').innerText = tg.initDataUnsafe.user?.first_name || '';
 
         async function loadReports() {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('reports')
                 .select('*')
                 .eq('user_id', userId);
@@ -98,7 +98,7 @@
         }
 
         async function deleteItem(id) {
-            await supabase.from('reports').delete().eq('id', id);
+            await supabaseClient.from('reports').delete().eq('id', id);
             loadReports();
         }
 
