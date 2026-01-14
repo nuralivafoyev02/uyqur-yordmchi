@@ -170,7 +170,7 @@ bot.action('cancel_send', (ctx) => {
 bot.command('remember', (ctx) => {
     const t = ctx.message.text.split(' ');
     if (t.length < 4)
-        return ctx.reply('Format: /remember 15.01.2026 14:00 Vazifa');
+        return ctx.reply('Format: /remember [DD.MM.YYYY] [HH:MM] Vazifa');
 
     db.reminders.push({
         userId: ctx.from.id,
@@ -196,6 +196,15 @@ cron.schedule('* * * * *', () => {
     });
 });
 
-// ================== LAUNCH ==================
-bot.launch();
+module.exports = async (req, res) => {
+    try {
+        if (req.method === 'POST') {
+            await bot.handleUpdate(req.body);
+        }
+        res.status(200).send('OK');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error');
+    }
+};
 console.log('🚀 Bot ishga tushdi');
