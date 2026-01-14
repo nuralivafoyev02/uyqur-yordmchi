@@ -20,7 +20,7 @@
     "supabase",
     "vercel"
   ],
-  "author": "Uyqu'r Team",
+  "author": "Uyqur Team",
   "license": "ISC",
   "dependencies": {
     "@supabase/supabase-js": "^2.90.1",
