@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uyqur Yordamchi</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0F0F0F;
+            --bg-secondary: #1A1A1A;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0A0A0;
+            --accent: #3390EC;
+            --accent-hover: #4BA3F5;
+            --success: #4CAF50;
+            --danger: #FF5252;
+            --warning: #FFC107;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0F0F0F 0%, #1A1A2E 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3390EC, #00D4FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 30px;
+            animation: slideUp 0.6s ease;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(51, 144, 236, 0.2);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #00D4FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(135deg, var(--accent), #00D4FF);
+            border-radius: 2px;
+        }
+
+        .reports-container {
+            animation: slideUp 0.8s ease;
+        }
+
+        .report-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .report-card:hover {
+            transform: translateX(4px);
+            border-color: var(--accent);
+        }
+
+        .report-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), #00D4FF);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .report-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .report-text {
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            margin-bottom: 4px;
+        }
+
+        .report-time {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .btn-delete:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(255, 82, 82, 0.4);
+        }
+
+        .btn-delete:active {
+            transform: scale(0.95);
+        }
+
+        .bottom-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(180deg, transparent, rgba(15, 15, 15, 0.95));
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-send {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent), #00D4FF);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(51, 144, 236, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-send:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(51, 144, 236, 0.6);
+        }
+
+        .btn-send:active {
+            transform: translateY(0);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            animation: fadeIn 0.6s ease;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-text {
+            color: var(--text-secondary);
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--glass-border);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: rgba(76, 175, 80, 0.2);
+            color: var(--success);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        .badge-warning {
+            background: rgba(255, 193, 7, 0.2);
+            color: var(--warning);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Mening Hisobotlarim</h1>
+        <p id="user-name">Yuklanmoqda...</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="total-count">0</div>
+            <div class="stat-label">Jami</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="pending-count">0</div>
+            <div class="stat-label">Kutilmoqda</div>
+        </div>
+    </div>
+
+    <div class="reports-container">
+        <div class="section-title">
+            Yuborilmagan hisobotlar
+        </div>
+        <div id="reports-list">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Yuklanmoqda...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-actions">
+        <button class="btn-send" onclick="sendReport()" id="sendBtn" disabled>
+            <span>📤</span>
+            <span>Guruhga Yuborish</span>
+        </button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+
+        const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const userId = tg.initDataUnsafe.user?.id;
+        const userName = tg.initDataUnsafe.user?.first_name || 'Foydalanuvchi';
+
+        document.getElementById('user-name').innerText = `👋 Salom, ${userName}!`;
+
+        let reportsData = [];
+
+        async function loadReports() {
+            try {
+                // Yuborilmagan hisobotlar
+                const { data: pending, error: pendingError } = await supabaseClient
+                    .from('reports')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .is('sent_at', null)
+                    .order('created_at', { ascending: false });
+
+                if (pendingError) throw pendingError;
+
+                // Jami hisobotlar soni
+                const { count: totalCount } = await supabaseClient
+                    .from('reports')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', userId);
+
+                reportsData = pending || [];
+                
+                // Statistikani yangilash
+                document.getElementById('total-count').innerText = totalCount || 0;
+                document.getElementById('pending-count').innerText = reportsData.length;
+
+                // Listni yangilash
+                const list = document.getElementById('reports-list');
+                list.innerHTML = '';
+
+                if (reportsData.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <div class="empty-text">
+                                Hali yuborilmagan hisobotlar yo'q.<br>
+                                Botga matn yoki rasm yuboring!
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('sendBtn').disabled = true;
+                } else {
+                    reportsData.forEach(report => {
+                        const div = document.createElement('div');
+                        div.className = 'report-card';
+                        
+                        const icon = report.type === 'text' ? '📝' : '📸';
+                        const content = report.type === 'text' 
+                            ? report.content 
+                            : (report.caption || 'Rasm');
+                        
+                        const date = new Date(report.created_at);
+                        const timeStr = date.toLocaleTimeString('uz-UZ', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                        
+                        div.innerHTML = `
+                            <div class="report-icon">${icon}</div>
+                            <div class="report-content">
+                                <div class="report-text">${content}</div>
+                                <div class="report-time">⏰ ${timeStr}</div>
+                            </div>
+                            <button class="btn-delete" onclick="deleteItem(${report.id})">
+                                🗑️
+                            </button>
+                        `;
+                        list.appendChild(div);
+                    });
+                    document.getElementById('sendBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error loading reports:', error);
+                document.getElementById('reports-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-text">
+                            Xatolik yuz berdi.<br>
+                            Iltimos, qaytadan urinib ko'ring.
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function deleteItem(id) {
+            if (!confirm('Bu hisobotni o\'chirmoqchimisiz?')) return;
+
+            try {
+                tg.HapticFeedback.impactOccurred('medium');
+                
+                const { error } = await supabaseClient
+                    .from('reports')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                tg.HapticFeedback.notificationOccurred('success');
+                await loadReports();
+            } catch (error) {
+                console.error('Error deleting:', error);
+                tg.HapticFeedback.notificationOccurred('error');
+                tg.showAlert('O\'chirishda xatolik yuz berdi!');
+            }
+        }
+
+        function sendReport() {
+            if (reportsData.length === 0) {
+                tg.showAlert('Yuborish uchun hisobotlar yo\'q!');
+                return;
+            }
+
+            tg.HapticFeedback.impactOccurred('heavy');
+            
+            // Botga signal yuborish
+            tg.sendData(JSON.stringify({ 
+                action: 'send_reports',
+                count: reportsData.length 
+            }));
+            
+            tg.showPopup({
+                title: '✅ Yuborildi',
+                message: `${reportsData.length} ta hisobot guruhga yuborildi!`,
+                buttons: [{ type: 'ok' }]
+            }, () => {
+                tg.close();
+            });
+        }
+
+        // Dastlabki yuklash
+        loadReports();
+
+        // Har 30 sekundda yangilash
+        setInterval(loadReports, 30000);
+    </script>
+</body>
+</html>
