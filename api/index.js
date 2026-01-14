@@ -59,22 +59,25 @@ bot.help((ctx) => {
 });
 
 // ================== HISOBOT YIG‘ISH ==================
-bot.on(['text', 'photo'], (ctx, next) => {
-    if (ctx.chat.type !== 'private') return next();
-    if (ctx.message.text && ctx.message.text.startsWith('/')) return next();
-
+bot.on(['text', 'photo'], async (ctx, next) => {
+    if (ctx.chat.type !== 'private' || (ctx.message.text && ctx.message.text.startsWith('/'))) return next();
+    
     const userId = ctx.from.id;
-    if (!db.reports[userId]) db.reports[userId] = [];
+    const type = ctx.message.photo ? 'photo' : 'text';
+    const content = ctx.message.photo ? ctx.message.photo[ctx.message.photo.length - 1].file_id : ctx.message.text;
+    const caption = ctx.message.caption || '';
 
-    db.reports[userId].push({
-        type: ctx.message.photo ? 'photo' : 'text',
-        content: ctx.message.photo
-            ? ctx.message.photo[ctx.message.photo.length - 1].file_id
-            : ctx.message.text,
-        caption: ctx.message.caption || ''
-    });
+    // Ma'lumotni to'g'ridan-to'g'ri Supabase'ga yozamiz
+    const { error } = await supabase
+        .from('reports')
+        .insert([{ user_id: userId, type: type, content: content, caption: caption }]);
+    
+    if (error) {
+        console.error("Supabase Error:", error);
+        return ctx.reply("❌ Hisobotni saqlashda xatolik yuz berdi.");
+    }
 
-    ctx.reply('📥 Qo‘shildi');
+    ctx.reply("📥 Element qabul qilindi va bazaga saqlandi.");
 });
 
 // ================== SEND (PREVIEW) ==================
