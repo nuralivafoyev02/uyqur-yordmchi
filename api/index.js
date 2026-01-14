@@ -92,29 +92,34 @@ bot.on(['text', 'photo'], async (ctx, next) => {
 bot.command('send', async (ctx) => {
     const userId = ctx.from.id;
 
-    // Supabase-dan ushbu userning oxirgi hisobotlarini olamiz
-    const { data: reports, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('user_id', userId)
-        .is('sent_at', null); // Faqat hali guruhga yuborilmaganlarini olamiz
+    try {
+        // Supabase-dan hali yuborilmagan hisobotlarni olish
+        const { data: reports, error } = await supabase
+            .from('reports')
+            .select('*')
+            .eq('user_id', userId)
+            .is('sent_at', null);
 
-    if (error || !reports || reports.length === 0) {
-        return ctx.reply('❗️ Hisobot bo‘sh. Avval ma\'lumot yuboring.');
+        if (error || !reports || reports.length === 0) {
+            return ctx.reply('❗️ Hisobot bo‘sh. Avval matn yoki rasm yuboring.');
+        }
+
+        let preview = `📝 <b>Hisobot namunasi (Preview)</b>\n\n`;
+        reports.forEach((r, i) => {
+            preview += `<b>${i + 1}.</b> ${r.type === 'text' ? r.content : '📸 Rasm'}\n`;
+        });
+
+        ctx.reply(preview + `\nTasdiqlaysizmi?`, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+                [Markup.button.callback('✅ Yuborish', 'confirm_send')],
+                [Markup.button.callback('❌ Bekor qilish', 'cancel_send')]
+            ])
+        });
+    } catch (err) {
+        console.error(err);
+        ctx.reply('❌ Ma\'lumotni yuklashda xatolik.');
     }
-
-    let preview = `📝 <b>Hisobot namunasi</b>\n\n`;
-    reports.forEach((r, i) => {
-        preview += `${i + 1}. ${r.type === 'text' ? r.content : '📸 Rasm'}\n`;
-    });
-
-    ctx.reply(preview + `\nTasdiqlaysizmi?`, {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-            [Markup.button.callback('✅ Yuborish', 'confirm_send')],
-            [Markup.button.callback('❌ Bekor qilish', 'cancel_send')]
-        ])
-    });
 });
 
 // ================== TASDIQLASH ==================
@@ -214,6 +219,23 @@ bot.action('cancel_send', (ctx) => {
         '❌ Yuborish bekor qilindi',
         { parse_mode: 'HTML' }
     );
+});
+// ================== REPORTS ==================
+bot.command('my_reports', async (ctx) => {
+    const userId = ctx.from.id;
+    
+    try {
+        const { data, count, error } = await supabase
+            .from('reports')
+            .select('*', { count: 'exact' })
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        ctx.reply(`📊 <b>Sizning statistikangiz:</b>\n\nJami kiritilgan elementlar: <b>${count || 0}</b> ta.`, { parse_mode: 'HTML' });
+    } catch (err) {
+        ctx.reply('❌ Ma\'lumotni olishda xatolik yuz berdi.');
+    }
 });
 
 // ================== ESLATMA ==================
