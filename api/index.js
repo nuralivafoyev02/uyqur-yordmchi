@@ -91,10 +91,16 @@ bot.on(['text', 'photo'], async (ctx, next) => {
 // ================== SEND (PREVIEW) ==================
 bot.command('send', async (ctx) => {
     const userId = ctx.from.id;
-    const reports = db.reports[userId] || [];
 
-    if (!reports.length) {
-        return ctx.reply('❗️Hisobot bo‘sh');
+    // Supabase-dan ushbu userning oxirgi hisobotlarini olamiz
+    const { data: reports, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('user_id', userId)
+        .is('sent_at', null); // Faqat hali guruhga yuborilmaganlarini olamiz
+
+    if (error || !reports || reports.length === 0) {
+        return ctx.reply('❗️ Hisobot bo‘sh. Avval ma\'lumot yuboring.');
     }
 
     let preview = `📝 <b>Hisobot namunasi</b>\n\n`;
@@ -114,59 +120,91 @@ bot.command('send', async (ctx) => {
 // ================== TASDIQLASH ==================
 bot.action('confirm_send', async (ctx) => {
     const userId = ctx.from.id;
-    const reports = db.reports[userId] || [];
-    if (!reports.length) return ctx.answerCbQuery('Bo‘sh');
+
+    // 1. Bazadan hali yuborilmagan (sent_at IS NULL) hisobotlarni olish
+    const { data: reports, error: fetchError } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('user_id', userId)
+        .is('sent_at', null)
+        .order('created_at', { ascending: true });
+
+    if (fetchError || !reports || reports.length === 0) {
+        return ctx.answerCbQuery('Yuborish uchun yangi hisobotlar topilmadi!', { show_alert: true });
+    }
 
     try {
-        const userName = db.users[userId] || ctx.from.first_name;
-
-        let text =
-            `🌟 <b>KUNLIK HISOBOT</b>\n\n` +
+        const userName = ctx.from.first_name || "Xodim";
+        const now = moment().tz(TIMEZONE);
+        
+        // Chiroyli sarlavha
+        let reportText = 
+            `📊 <b>KUNLIK ISH HISOBOTI</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n` +
             `👤 <b>Xodim:</b> ${userName}\n` +
-            `📅 <b>Sana:</b> ${moment().tz(TIMEZONE).format('DD.MM.YYYY')}\n\n`;
+            `📅 <b>Sana:</b> ${now.format('DD.MM.YYYY')}\n` +
+            `⏰ <b>Vaqt:</b> ${now.format('HH:mm')}\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📝 <b>Bajarilgan ishlar:</b>\n`;
 
-        let media = [];
+        let mediaGroup = [];
+        let textCount = 0;
 
-        reports.forEach((r, i) => {
-            if (r.type === 'text') {
-                text += `<b>${i + 1}.</b> ${r.content}\n`;
-            } else {
-                text += `<b>${i + 1}.</b> 📸 Rasm\n`;
-                media.push({
+        // Hisobotlarni tartiblash
+        reports.forEach((item, index) => {
+            if (item.type === 'text') {
+                textCount++;
+                reportText += `<b>${textCount}.</b> ${item.content}\n`;
+            } else if (item.type === 'photo') {
+                mediaGroup.push({
                     type: 'photo',
-                    media: r.content,
-                    caption: r.caption || ''
+                    media: item.content,
+                    caption: item.caption ? `📸 ${item.caption}` : `📸 Rasm #${index + 1}`
                 });
             }
         });
 
-        // 1️⃣ Matn
-        await bot.telegram.sendMessage(GROUP_ID, text, { parse_mode: 'HTML' });
-
-        // 2️⃣ Rasmlar
-        if (media.length) {
-            await bot.telegram.sendMediaGroup(GROUP_ID, media);
+        if (textCount === 0 && mediaGroup.length > 0) {
+            reportText += `<i>(Faqat media hisobotlar yuborildi)</i>\n`;
         }
 
-        // 3️⃣ Supabase — hisobot saqlash
-        await supabase.from('reports').insert({
-            user_id: userId,
-            content: JSON.stringify(reports), // Massivni matnga o'girib saqlaymiz
-            type: 'final_report',             // Yakuniy hisobot ekanligini bildirish
-            sent_at: moment().tz(TIMEZONE).toISOString()
-        });
+        // 2. Guruhga matnli hisobotni yuborish
+        await bot.telegram.sendMessage(GROUP_ID, reportText, { parse_mode: 'HTML' });
 
-        db.reports[userId] = [];
+        // 3. Agar rasmlar bo'lsa, ularni alohida Albom ko'rinishida yuborish
+        if (mediaGroup.length > 0) {
+            // Telegram bitta xabarda max 10 ta rasm yubora oladi
+            const chunks = [];
+            for (let i = 0; i < mediaGroup.length; i += 10) {
+                chunks.push(mediaGroup.slice(i, i + 10));
+            }
+            
+            for (const chunk of chunks) {
+                await bot.telegram.sendMediaGroup(GROUP_ID, chunk);
+            }
+        }
 
+        // 4. Bazada ushbu hisobotlarni "yuborildi" deb belgilash
+        const { error: updateError } = await supabase
+            .from('reports')
+            .update({ sent_at: now.toISOString() })
+            .eq('user_id', userId)
+            .is('sent_at', null);
+
+        if (updateError) throw updateError;
+
+        // Foydalanuvchiga tasdiq xabari
         await ctx.editMessageText(
-            '✅ <b>Hisobot muvaffaqiyatli yuborildi</b>',
+            `✅ <b>Hisobot guruhga muvaffaqiyatli yuborildi!</b>\n\n` +
+            `Barcha elementlar arxivlandi.`,
             { parse_mode: 'HTML' }
         );
-        ctx.answerCbQuery('Yuborildi');
+
+        ctx.answerCbQuery('Muvaffaqiyatli yuborildi');
 
     } catch (e) {
-        console.error(e);
-        ctx.reply('❌ Xatolik yuz berdi');
+        console.error('Yuborishda xatolik:', e);
+        ctx.reply('❌ Hisobotni guruhga yuborishda texnik xatolik yuz berdi.');
     }
 });
 
