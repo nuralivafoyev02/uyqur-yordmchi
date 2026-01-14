@@ -20,12 +20,6 @@
       "dest": "/public/$1"
     }
   ],
-  "env": {
-    "BOT_TOKEN": "@bot_token",
-    "WEBAPP_URL": "@webapp_url",
-    "SUPABASE_URL": "@supabase_url",
-    "SUPABASE_ANON_KEY": "@supabase_anon_key"
-  },
   "headers": [
     {
       "source": "/api/(.*)",
