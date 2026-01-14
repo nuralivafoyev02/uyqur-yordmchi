@@ -12,8 +12,9 @@ const supabase = createClient(
 const GROUP_ID = -1003076536847;
 
 // ================== XATOLARNI USHLASH ==================
-bot.catch(err => {
-    console.error('❌ BOT ERROR:', err);
+bot.catch((err, ctx) => {
+    console.error(`❌ Error for update ${ctx.update.update_id}:`, err);
+    ctx.reply("Botda ichki xatolik yuz berdi. Iltimos, @uyqur_nurali ga murojaat qiling.");
 });
 
 // ================== START ==================
@@ -245,7 +246,7 @@ bot.action('confirm_send', async (ctx) => {
             return ctx.editMessageText('❌ Yuborish uchun hisobotlar topilmadi.');
         }
 
-        const userName = ctx.from.first_name || "Xodim";
+        const userName = ctx.from.first_name || "Do'stim";
         const now = new Date();
         const dateStr = now.toLocaleDateString('uz-UZ', { 
             day: '2-digit', 
@@ -417,14 +418,19 @@ bot.action('cancel_clear', async (ctx) => {
 // ================== WEBHOOK HANDLER ==================
 module.exports = async (req, res) => {
     try {
-        if (req.method === 'POST') {
-            await bot.handleUpdate(req.body);
-            res.status(200).send('OK');
+        if (req.method === 'POST' && req.body) {
+            // handleUpdate funksiyasiga ikkinchi argument sifatida 'res'ni uzatish 
+            // Telegrafga javobni to'g'ri qaytarishga yordam beradi
+            await bot.handleUpdate(req.body, res);
+            if (!res.writableEnded) {
+                res.status(200).send('OK');
+            }
         } else {
-            res.status(200).send('Bot webhook is running');
+            res.status(200).send('Uyqur Yordamchi bot is active.');
         }
     } catch (err) {
-        console.error('Webhook error:', err);
-        res.status(500).send('Error');
+        console.error('❌ Webhook error:', err);
+        // Xatolik bo'lsa ham 200 qaytargan ma'qul, aks holda Telegram xabarni qayta-qayta yuboraveradi
+        res.status(200).send('Error handled');
     }
 };
