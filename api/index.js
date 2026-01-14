@@ -196,5 +196,17 @@ cron.schedule('* * * * *', () => {
     });
 });
 
-bot.launch() 
+// bot.launch() 
+module.exports = async (req, res) => {
+    if (req.method === 'POST') {
+        try {
+            await bot.handleUpdate(req.body); // Telegramdan kelgan xabarni qayta ishlash
+            return res.status(200).send('OK');
+        } catch (err) {
+            console.error(err);
+            return res.status(500).send('Xato');
+        }
+    }
+    res.status(200).send("Bot serveri ishlamoqda..."); // Brauzerda ochganda ko'rinadi
+};
 console.log('🚀 Bot ishga tushdi');
