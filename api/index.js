@@ -42,7 +42,7 @@ bot.start(async (ctx) => {
         );
 
     ctx.reply(
-        `Assalomu alaykum, <b>${firstName}</b>!\n\nKunlik qilgan ishlaringizni yozib borsangiz kun oxirida /start buyrug'i bilan kunlik natijangizni guruhga yuborishingiz mumkin.`,
+        `Assalomu alaykum, <b>${firstName}</b>!\n\nKunlik qilgan ishlaringizni yozib borsangiz kun oxirida /send buyrug'i bilan kunlik natijangizni guruhga yuborishingiz mumkin.`,
         { parse_mode: 'HTML' }
     );
 });
@@ -60,6 +60,7 @@ bot.help((ctx) => {
 
 // ================== HISOBOT YIG‘ISH ==================
 bot.on(['text', 'photo'], async (ctx, next) => {
+    // Buyruqlarni o'tkazib yuborish
     if (ctx.chat.type !== 'private' || (ctx.message.text && ctx.message.text.startsWith('/'))) return next();
     
     const userId = ctx.from.id;
@@ -67,22 +68,24 @@ bot.on(['text', 'photo'], async (ctx, next) => {
     const content = ctx.message.photo ? ctx.message.photo[ctx.message.photo.length - 1].file_id : ctx.message.text;
     const caption = ctx.message.caption || '';
 
-    // Supabase-ga yozish
-    const { error } = await supabase
-        .from('reports')
-        .insert([{ 
-            user_id: userId, 
-            type: type, 
-            content: content, 
-            caption: caption 
-        }]);
-    
-    if (error) {
-        console.error("Supabase Error:", error);
-        return ctx.reply("❌ Hisobotni saqlashda bazada xatolik yuz berdi.");
-    }
+    try {
+        // Supabase-ga to'g'ridan-to'g'ri yozish
+        const { error } = await supabase
+            .from('reports')
+            .insert([{ 
+                user_id: userId, 
+                type: type, 
+                content: content, 
+                caption: caption 
+            }]);
+        
+        if (error) throw error; // Agar Supabase xato qaytarsa catch blokiga o'tadi
 
-    ctx.reply("📥 Muvaffaqqiyatli saqlandi.");
+        ctx.reply("📥 Saqlandi. Mini App orqali ko'rishingiz mumkin.");
+    } catch (err) {
+        console.error('Supabase Error:', err);
+        ctx.reply("❌ Hisobotni saqlashda bazada xatolik yuz berdi.");
+    }
 });
 
 // ================== SEND (PREVIEW) ==================
