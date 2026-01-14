@@ -93,32 +93,38 @@ bot.command('send', async (ctx) => {
     const userId = ctx.from.id;
 
     try {
-        // Supabase-dan hali yuborilmagan hisobotlarni olish
+        // userId ni qat'iy turda tekshiramiz
         const { data: reports, error } = await supabase
             .from('reports')
             .select('*')
             .eq('user_id', userId)
-            .is('sent_at', null);
+            .or('sent_at.is.null,sent_at.eq.""'); // Ham NULL, ham bo'sh matnni tekshirish
 
-        if (error || !reports || reports.length === 0) {
-            return ctx.reply('❗️ Hisobot bo‘sh. Avval matn yoki rasm yuboring.');
+        if (error) {
+            console.error('Baza xatosi:', error);
+            return ctx.reply('❌ Bazadan ma\'lumot olishda xatolik.');
         }
 
-        let preview = `📝 <b>Hisobot namunasi (Preview)</b>\n\n`;
+        if (!reports || reports.length === 0) {
+            return ctx.reply('❗️ Hali yuborilmagan yangi hisobotlar topilmadi.');
+        }
+
+        let preview = `📝 <b>Yuborilmagan hisobotlar (${reports.length} ta)</b>\n\n`;
         reports.forEach((r, i) => {
-            preview += `<b>${i + 1}.</b> ${r.type === 'text' ? r.content : '📸 Rasm'}\n`;
+            const content = r.type === 'text' ? r.content : (r.caption ? `📸 ${r.caption}` : '📸 Rasm');
+            preview += `<b>${i + 1}.</b> ${content}\n`;
         });
 
-        ctx.reply(preview + `\nTasdiqlaysizmi?`, {
+        ctx.reply(preview + `\nYuqoridagilarni guruhga tasdiqlaysizmi?`, {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([
-                [Markup.button.callback('✅ Yuborish', 'confirm_send')],
+                [Markup.button.callback('✅ Tasdiqlayman', 'confirm_send')],
                 [Markup.button.callback('❌ Bekor qilish', 'cancel_send')]
             ])
         });
     } catch (err) {
-        console.error(err);
-        ctx.reply('❌ Ma\'lumotni yuklashda xatolik.');
+        console.error('Server xatosi:', err);
+        ctx.reply('❌ Kutilmagan xatolik yuz berdi. @uyqur_nurali ga murojaat qiling.');
     }
 });
 
