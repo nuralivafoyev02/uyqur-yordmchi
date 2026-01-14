@@ -98,7 +98,8 @@ bot.command('send', async (ctx) => {
             .from('reports')
             .select('*')
             .eq('user_id', userId)
-            .or('sent_at.is.null,sent_at.eq.""'); // Ham NULL, ham bo'sh matnni tekshirish
+            .is('sent_at', null);
+
 
         if (error) {
             console.error('Baza xatosi:', error);
@@ -147,9 +148,9 @@ bot.action('confirm_send', async (ctx) => {
     try {
         const userName = ctx.from.first_name || "Xodim";
         const now = moment().tz(TIMEZONE);
-        
+
         // Chiroyli sarlavha
-        let reportText = 
+        let reportText =
             `📊 <b>KUNLIK ISH HISOBOTI</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `👤 <b>Xodim:</b> ${userName}\n` +
@@ -189,7 +190,7 @@ bot.action('confirm_send', async (ctx) => {
             for (let i = 0; i < mediaGroup.length; i += 10) {
                 chunks.push(mediaGroup.slice(i, i + 10));
             }
-            
+
             for (const chunk of chunks) {
                 await bot.telegram.sendMediaGroup(GROUP_ID, chunk);
             }
@@ -229,7 +230,7 @@ bot.action('cancel_send', (ctx) => {
 // ================== REPORTS ==================
 bot.command('my_reports', async (ctx) => {
     const userId = ctx.from.id;
-    
+
     try {
         const { data, count, error } = await supabase
             .from('reports')
