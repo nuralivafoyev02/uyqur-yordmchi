@@ -419,18 +419,13 @@ bot.action('cancel_clear', async (ctx) => {
 module.exports = async (req, res) => {
     try {
         if (req.method === 'POST' && req.body) {
-            // handleUpdate funksiyasiga ikkinchi argument sifatida 'res'ni uzatish 
-            // Telegrafga javobni to'g'ri qaytarishga yordam beradi
-            await bot.handleUpdate(req.body, res);
-            if (!res.writableEnded) {
-                res.status(200).send('OK');
-            }
+            await bot.handleUpdate(req.body);
+            res.status(200).send('OK');
         } else {
             res.status(200).send('Uyqur Yordamchi bot is active.');
         }
     } catch (err) {
         console.error('❌ Webhook error:', err);
-        // Xatolik bo'lsa ham 200 qaytargan ma'qul, aks holda Telegram xabarni qayta-qayta yuboraveradi
         res.status(200).send('Error handled');
     }
 };
