@@ -42,7 +42,7 @@ bot.start(async (ctx) => {
         );
 
     ctx.reply(
-        `Assalomu alaykum, <b>${firstName}</b>!\n\nHisobot elementlarini (matn yoki rasm) yuboring va so‘ng /send bosing.`,
+        `Assalomu alaykum, <b>${firstName}</b>!\n\nKunlik qilgan ishlaringizni yozib borsangiz kun oxirida /start buyrug'i bilan kunlik natijangizni guruhga yuborishingiz mumkin.`,
         { parse_mode: 'HTML' }
     );
 });
@@ -67,17 +67,22 @@ bot.on(['text', 'photo'], async (ctx, next) => {
     const content = ctx.message.photo ? ctx.message.photo[ctx.message.photo.length - 1].file_id : ctx.message.text;
     const caption = ctx.message.caption || '';
 
-    // Ma'lumotni to'g'ridan-to'g'ri Supabase'ga yozamiz
+    // Supabase-ga yozish
     const { error } = await supabase
         .from('reports')
-        .insert([{ user_id: userId, type: type, content: content, caption: caption }]);
+        .insert([{ 
+            user_id: userId, 
+            type: type, 
+            content: content, 
+            caption: caption 
+        }]);
     
     if (error) {
         console.error("Supabase Error:", error);
-        return ctx.reply("❌ Hisobotni saqlashda xatolik yuz berdi.");
+        return ctx.reply("❌ Hisobotni saqlashda bazada xatolik yuz berdi.");
     }
 
-    ctx.reply("📥 Element qabul qilindi va bazaga saqlandi.");
+    ctx.reply("📥 Muvaffaqqiyatli saqlandi.");
 });
 
 // ================== SEND (PREVIEW) ==================
