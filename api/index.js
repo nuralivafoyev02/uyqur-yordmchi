@@ -205,20 +205,26 @@ bot.on('text', async (ctx) => {
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
-            // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
+            // ClickUp Webhook kelganda
             if (req.body && req.body.webhook_id) {
-                await handleClickUpWebhook(req);
-                return res.status(200).send('OK');
+                // 1. ClickUp-ga darhol javob qaytaramiz (Retry-ni to'xtatish uchun)
+                res.status(200).send('OK');
+
+                // 2. Mantiqni fonda ishga tushiramiz (await qilmasdan)
+                handleClickUpWebhook(req).catch(err => console.error("Background Logic Error:", err));
+                return; 
             }
 
-            // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
+            // Telegram xabarlarini odatdagidek kutib olamiz
             await bot.handleUpdate(req.body);
             return res.status(200).send('OK');
 
         } catch (err) {
             console.error("Main Handler Error:", err);
-            return res.status(200).send('OK'); // Vercel xato bermasligi uchun
+            // Xato bo'lsa ham 200 qaytaramiz, aks holda ClickUp qiynayveradi
+            if (!res.writableEnded) res.status(200).send('OK');
         }
+    } else {
+        res.status(200).send('Bot is active!');
     }
-    res.status(200).send('Bot is active!');
 };
