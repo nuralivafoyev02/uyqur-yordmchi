@@ -29,16 +29,19 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
 async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
+    if (event !== 'taskCreated') {
+        console.log(`SKIP: ${event}`);
+        return;
+    }
     console.log(`LOG: Hodisa keldi: ${event}. 3 soniya kutilmoqda...`);
 
     try {
         // ClickUp ma'lumotlarni yangilab olishi uchun ozgina kutamiz
-        await delay(3000); 
+        await delay(3000);
 
         // Task ma'lumotlarini qayta so'raymiz
         const task = await clickupRequest(`task/${task_id}`);
         console.log(`LOG: Task yuklandi: ${task.name}. Assignees soni: ${task.assignees?.length || 0}`);
-
         if (task.assignees && task.assignees.length > 0) {
             for (let assignee of task.assignees) {
                 const { data: userMap } = await supabase
@@ -49,10 +52,10 @@ async function handleClickUpWebhook(req) {
 
                 if (userMap) {
                     const text = `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
-                                 `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
-                                 `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
-                                 `<a href="${task.url}">ClickUp'da ochish</a>`;
-                    
+                        `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
+                        `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
+                        `<a href="${task.url}">ClickUp'da ochish</a>`;
+
                     const keyboard = Markup.inlineKeyboard([
                         [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
                         [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
