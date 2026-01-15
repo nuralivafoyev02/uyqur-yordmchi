@@ -23,40 +23,51 @@ const escapeHTML = (str) => {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 };
 
-// --- CLICKUP WEBHOOK HANDLER ---
+// --- CLICKUP WEBHOOK HANDLER (ASOSIY QISM) ---
 async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
+    console.log(`LOG: ClickUp hodisasi - ${event} | Task ID - ${task_id}`);
 
-    // Faqat yangi task yaratilganda yoki xodim biriktirilganda ishlaydi
-    if (event === 'taskCreated' || event === 'taskAssigneeUpdated') {
-        try {
-            const task = await clickupRequest(`task/${task_id}`);
-            if (task.assignees && task.assignees.length > 0) {
-                for (let assignee of task.assignees) {
-                    const { data: userMap } = await supabase
-                        .from('users_mapping')
-                        .select('telegram_id')
-                        .eq('clickup_user_id', assignee.id)
-                        .single();
+    try {
+        // 1. Taskning eng oxirgi ma'lumotlarini ClickUp'dan olamiz
+        const task = await clickupRequest(`task/${task_id}`);
+        
+        // 2. Vazifada mas'ul xodimlar (assignees) borligini tekshiramiz
+        if (task.assignees && task.assignees.length > 0) {
+            for (let assignee of task.assignees) {
+                // 3. Supabase'dan xodimning Telegram ID sini topamiz
+                const { data: userMap } = await supabase
+                    .from('users_mapping')
+                    .select('telegram_id')
+                    .eq('clickup_user_id', assignee.id)
+                    .single();
 
-                    if (userMap) {
-                        const text = `🆕 <b>Yangi ClickUp vazifasi biriktirildi!</b>\n\n` +
-                            `📌 <b>${escapeHTML(task.name)}</b>\n` +
-                            `📝 ${escapeHTML(task.description || "Tavsif yo'q")}\n\n` +
-                            `<i>Ishni boshlagach statusni yangilab qo'ying:</i>`;
+                // 4. Agar xodim bizning bazada bo'lsa, xabar yuboramiz
+                if (userMap) {
+                    let title = "📌 Yangi vazifa biriktirildi";
+                    if (event === 'taskStatusUpdated') title = "🔄 Vazifa statusi o'zgardi";
 
-                        const keyboard = Markup.inlineKeyboard([
-                            [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
-                            [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
-                        ]);
+                    const text = `<b>${title}:</b>\n\n` +
+                                 `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
+                                 `<b>Status:</b> ${task.status.status.toUpperCase()}\n` +
+                                 `<b>Tavsif:</b> ${escapeHTML(task.description || "Yo'q")}\n\n` +
+                                 `<a href="${task.url}">ClickUp'da ochish</a>`;
+                    
+                    const keyboard = Markup.inlineKeyboard([
+                        [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
+                        [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
+                    ]);
 
-                        await bot.telegram.sendMessage(userMap.telegram_id, text, { parse_mode: 'HTML', ...keyboard });
-                    }
+                    await bot.telegram.sendMessage(userMap.telegram_id, text, { 
+                        parse_mode: 'HTML', 
+                        ...keyboard 
+                    });
+                    console.log(`✅ Xabar yuborildi TG ID: ${userMap.telegram_id}`);
                 }
             }
-        } catch (err) {
-            console.error("Webhook Logic Error:", err);
         }
+    } catch (err) {
+        console.error("❌ Webhook ishlov berishda xato:", err);
     }
 }
 // --- TELEGRAM COMMANDS ---
@@ -194,20 +205,19 @@ bot.on('text', async (ctx) => {
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
-            // ⚠️ DEBUG: Kelayotgan har qanday so'rovni log qilamiz
-            console.log("LOG: Yangi so'rov keldi!", JSON.stringify(req.body));
-
+            // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
             if (req.body && req.body.webhook_id) {
-                console.log("LOG: ClickUp Webhook aniqlandi!");
                 await handleClickUpWebhook(req);
                 return res.status(200).send('OK');
             }
-            // Telegram Update
+
+            // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
             await bot.handleUpdate(req.body);
             return res.status(200).send('OK');
+
         } catch (err) {
             console.error("Main Handler Error:", err);
-            return res.status(200).send('Error Handled');
+            return res.status(200).send('OK'); // Vercel xato bermasligi uchun
         }
     }
     res.status(200).send('Bot is active!');
