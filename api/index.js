@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const ADMIN_ID = 12345678; // Bu yerga o'z TG ID-ingizni qo'ying
+const ADMIN_ID = 7894854944;
 
 // ClickUp API Helper
 const clickupRequest = async (endpoint, method = 'GET', body = null) => {
