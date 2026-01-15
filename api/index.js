@@ -30,37 +30,32 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
 
-    // Faqat kerakli eventlar
+    // Faqat task yaratilganda yoki update bo‘lganda
     if (event !== 'taskCreated' && event !== 'taskUpdated') {
         return;
     }
-
-    // 🔒 DUPLICATE LOCK (ENG MUHIM QISM)
-    const { data: exists } = await supabase
-        .from('clickup_notifications')
-        .select('task_id')
-        .eq('task_id', task_id)
-        .single();
-
-    if (exists) {
-        console.log(`⛔ Skip duplicate task: ${task_id}`);
-        return;
-    }
-
-    // ClickUp assignee yozib ulgurishi uchun kutamiz
-    await delay(3000);
-
-    const task = await clickupRequest(`task/${task_id}`);
-
-    if (!task.assignees || !task.assignees.length) {
-        console.log('⚠️ Assignee yo‘q, skip');
-        return;
-    }
-
-    // 🔐 LOCKNI OLDINDAN YOZIB QO‘YAMIZ (race condition yo‘q)
-    await supabase
+    // 🔒 ENG MUHIM QISM — DARHOL LOCK QILAMIZ
+    const { error: lockError } = await supabase
         .from('clickup_notifications')
         .insert([{ task_id }]);
+    // Agar oldin yozilgan bo‘lsa → duplicate
+    if (lockError) {
+        console.log(`⛔ Duplicate task (lock bor): ${task_id}`);
+        return;
+    }
+
+    // 🔄 Endi xotirjam ishlaymiz (duplicate YO‘Q)
+    let task;
+    for (let i = 0; i < 3; i++) {
+        task = await clickupRequest(`task/${task_id}`);
+        if (task?.assignees?.length) break;
+        await new Promise(r => setTimeout(r, 800));
+    }
+
+    if (!task?.assignees?.length) {
+        console.log('⚠️ Assignee topilmadi');
+        return;
+    }
 
     for (const assignee of task.assignees) {
         const { data: userMap } = await supabase
@@ -91,6 +86,7 @@ async function handleClickUpWebhook(req) {
         console.log(`✅ Task ${task_id} → TG ${userMap.telegram_id}`);
     }
 }
+
 
 // --- TELEGRAM COMMANDS ---
 // Faqat admin ishlata oladigan komanda - foydalanuvchilarni bog'lash
@@ -227,10 +223,12 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
             // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
-            if (req.body && req.body.webhook_id) {
-                await handleClickUpWebhook(req);
-                return res.status(200).send('OK');
+            if (req.body?.webhook_id) {
+                res.status(200).send('OK');   // ⚡ darhol
+                handleClickUpWebhook(req);    // background
+                return;
             }
+
 
             // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
             await bot.handleUpdate(req.body);
