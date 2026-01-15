@@ -39,7 +39,8 @@ bot.start((ctx) => {
     ctx.reply(
         `👋 <b>Assalomu alaykum, ${escapeHTML(ctx.from.first_name)}!</b>\n\n` +
         `Men kunlik hisobotlarni yig'uvchi botman.\n` +
-        `Ishlaringizni shunchaki yozib qoldiring. Kun oxirida /send buyrug'ini bosing.`,
+        `/help buyrug'i bilan bot commandlarini ko'rishingiz mumkin.\n` +
+        `Qilgan ishlaringizni shunchaki yozib qoldiring. Kun oxirida /send buyrug'ini bilan guruhga hisobotni yuborsangiz bo'ladi.`,
         { parse_mode: 'HTML' }
     );
 });
@@ -47,7 +48,7 @@ bot.start((ctx) => {
 // /help
 bot.help((ctx) => {
     ctx.reply(
-        `🆘 <b>Yordam bo'limi:</b>\n\n` +
+        `📝 <b>Yordam bo'limi:</b>\n\n` +
         `/send - Yozilgan hisobotlarni ko'rish va guruhga yuborish.\n` +
         `/clear - Yuborilmagan barcha hisobotlarni o'chirib tashlash.\n` +
         `\nShunchaki matn yozsangiz, uni hisobot sifatida saqlab qo'yaman.`,
@@ -142,15 +143,12 @@ bot.action('confirm_send', async (ctx) => {
             year: 'numeric'
         });
         // Hisobot matnini shakllantirish
-        let finalReport = `📅 <b>KUNLIK #hisobot \n(${dateString})</b>\n` + 
-                          `👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n` +
-                          `──────────────────\n`;
+        let finalReport = `📅 <b>KUNLIK #hisobot\n</b>${dateString}\n` + 
+                          `👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n`;
         
         data.forEach((item, index) => {
             finalReport += `${index + 1}. ${escapeHTML(item.content)}\n`;
         });
-        
-        finalReport += `──────────────────\n`;
 
         // Guruhga yuborish
         await ctx.telegram.sendMessage(process.env.GROUP_ID, finalReport, { parse_mode: 'HTML' });
