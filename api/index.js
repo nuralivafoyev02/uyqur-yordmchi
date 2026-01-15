@@ -26,66 +26,57 @@ const escapeHTML = (str) => {
 async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
 
+    // Faqat yangi task yaratilganda yoki xodim biriktirilganda ishlaydi
     if (event === 'taskCreated' || event === 'taskAssigneeUpdated') {
-        const task = await clickupRequest(`task/${task_id}`);
-        
-        if (task.assignees && task.assignees.length > 0) {
-            for (let assignee of task.assignees) {
-                const { data: userMap } = await supabase
-                    .from('users_mapping')
-                    .select('telegram_id')
-                    .eq('clickup_user_id', assignee.id)
-                    .single();
+        try {
+            const task = await clickupRequest(`task/${task_id}`);
+            if (task.assignees && task.assignees.length > 0) {
+                for (let assignee of task.assignees) {
+                    const { data: userMap } = await supabase
+                        .from('users_mapping')
+                        .select('telegram_id')
+                        .eq('clickup_user_id', assignee.id)
+                        .single();
 
-                if (userMap) {
-                    const text = `🆕 <b>Yangi ClickUp vazifasi:</b>\n\n` +
-                                 `📌 <b>${escapeHTML(task.name)}</b>\n` +
-                                 `📝 ${escapeHTML(task.description || "Tavsif yo'q")}\n\n` +
-                                 `Sizga biriktirildi. Ishni boshlagach statusni o'zgartiring:`;
-                    
-                    const keyboard = Markup.inlineKeyboard([
-                        [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
-                        [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
-                    ]);
+                    if (userMap) {
+                        const text = `🆕 <b>Yangi ClickUp vazifasi biriktirildi!</b>\n\n` +
+                                     `📌 <b>${escapeHTML(task.name)}</b>\n` +
+                                     `📝 ${escapeHTML(task.description || "Tavsif yo'q")}\n\n` +
+                                     `<i>Ishni boshlagach statusni yangilab qo'ying:</i>`;
+                        
+                        const keyboard = Markup.inlineKeyboard([
+                            [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
+                            [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
+                        ]);
 
-                    await bot.telegram.sendMessage(userMap.telegram_id, text, { parse_mode: 'HTML', ...keyboard });
+                        await bot.telegram.sendMessage(userMap.telegram_id, text, { parse_mode: 'HTML', ...keyboard });
+                    }
                 }
             }
+        } catch (err) {
+            console.error("Webhook Logic Error:", err);
         }
     }
 }
 
-// --- TELEGRAM ACTIONS ---
-bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
-    const [_, action, taskId] = ctx.match;
-    const statusName = action === 'process' ? 'in progress' : 'complete';
+// --- TELEGRAM COMMANDS ---
 
-    try {
-        await clickupRequest(`task/${taskId}`, 'PUT', { status: statusName });
-
-        if (action === 'done') {
-            const task = await clickupRequest(`task/${taskId}`);
-            // Yakunlangan taskni Supabase-ga 'pending' statusda qo'shamiz (send qilish uchun)
-            await supabase.from('reports').insert([{
-                user_id: ctx.from.id,
-                content: `(ClickUp) ${task.name}`,
-                status: 'pending'
-            }]);
-
-            await ctx.editMessageText(`✅ <b>Vazifa yakunlandi va hisobotlar ro'yxatiga qo'shildi!</b>`, { parse_mode: 'HTML' });
-        } else {
-            await ctx.answerCbQuery("Status o'zgardi: Jarayonda");
-            await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([
-                [Markup.button.callback("✅ Yakunlash", `cu_status_done_${taskId}`)]
-            ]).reply_markup);
-        }
-    } catch (err) {
-        console.error(err);
-        await ctx.answerCbQuery("ClickUp API xatosi!");
-    }
+bot.start(async (ctx) => {
+    const welcome = `Assalomu alaykum, <b>${escapeHTML(ctx.from.first_name)}</b>!\n\n` +
+                    `Men sizning ish hisobotlaringizni yig'ish va ClickUp vazifalaringizni boshqarishda yordam beraman.\n\n` +
+                    `📖 Buyruqlar va yordam: /help`;
+    await ctx.reply(welcome, { parse_mode: 'HTML' });
 });
 
-// Mavjud /send buyrug'i (hammasini guruhga yuboradi)
+bot.help(async (ctx) => {
+    const helpText = `🛠 <b>Bot buyruqlari:</b>\n\n` +
+                     `/send - Saqlangan barcha ishlarni ko'rish va guruhga yuborish\n` +
+                     `✍️ <b>Matn yozing</b> - Ishlaringizni botga oddiy xabar sifatida yuborsangiz, ular hisobotga qo'shiladi.\n` +
+                     `📌 <b>ClickUp</b> - Sizga biriktirilgan tasklar avtomatik keladi.\n\n` +
+                     `<i>Eslatma: ClickUp'da taskni "Yakunlash" bossangiz, u avtomatik hisobotingizga qo'shiladi.</i>`;
+    await ctx.reply(helpText, { parse_mode: 'HTML' });
+});
+
 bot.command('send', async (ctx) => {
     try {
         const { data, error } = await supabase
@@ -96,22 +87,50 @@ bot.command('send', async (ctx) => {
             .order('created_at', { ascending: true });
 
         if (error || !data.length) {
-            return ctx.reply("📭 Yuborish uchun yangi ishlar yo'q.");
+            return ctx.reply("📭 Hozircha yuborish uchun yangi ishlar yo'q.");
         }
 
-        let reportText = `📋 <b>Sizning hisobotingiz:</b>\n\n`;
+        let reportText = `📋 <b>Sizning hisobotingiz (yuborishdan oldin ko'zdan kechiring):</b>\n\n`;
         data.forEach((item, index) => {
             reportText += `<b>${index + 1}.</b> ${escapeHTML(item.content)}\n`;
         });
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("🚀 Guruhga yuborish", "confirm_send")],
-            [Markup.button.webApp("✍️ Tahrirlash", process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://google.com")]
+            [Markup.button.webApp("✍️ Tahrirlash (Mini App)", `https://${process.env.VERCEL_URL || 'your-app-url.vercel.app'}`)]
         ]);
 
         await ctx.reply(reportText, { parse_mode: 'HTML', ...keyboard });
     } catch (err) {
-        console.error(err);
+        console.error("Send command error:", err);
+    }
+});
+
+// --- ACTIONS & TEXT ---
+
+bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
+    const [_, action, taskId] = ctx.match;
+    const statusName = action === 'process' ? 'in progress' : 'complete';
+
+    try {
+        await clickupRequest(`task/${taskId}`, 'PUT', { status: statusName });
+
+        if (action === 'done') {
+            const task = await clickupRequest(`task/${taskId}`);
+            await supabase.from('reports').insert([{
+                user_id: ctx.from.id,
+                content: `(ClickUp) ${task.name}`,
+                status: 'pending'
+            }]);
+            await ctx.editMessageText(`✅ <b>Vazifa yakunlandi va hisobotga qo'shildi!</b>`, { parse_mode: 'HTML' });
+        } else {
+            await ctx.answerCbQuery("Status 'Jarayonda'ga o'zgardi");
+            await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([
+                [Markup.button.callback("✅ Yakunlash", `cu_status_done_${taskId}`)]
+            ]).reply_markup);
+        }
+    } catch (err) {
+        await ctx.answerCbQuery("Xatolik: ClickUp API bilan bog'lanib bo'lmadi.");
     }
 });
 
@@ -132,35 +151,36 @@ bot.action('confirm_send', async (ctx) => {
 
         await ctx.editMessageText("🚀 Hisobot guruhga yuborildi!", { parse_mode: 'HTML' });
     } catch (err) {
-        console.error(err);
+        console.error("Confirm send error:", err);
     }
 });
 
-// Matn xabarlarini saqlash
 bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    await supabase.from('reports').insert([{ user_id: ctx.from.id, content: ctx.message.text }]);
-    await ctx.reply("✅ Saqlandi.", { reply_to_message_id: ctx.message.message_id });
+    try {
+        await supabase.from('reports').insert([{ user_id: ctx.from.id, content: ctx.message.text, status: 'pending' }]);
+        await ctx.reply("✅ Hisobotga qo'shildi.", { reply_to_message_id: ctx.message.message_id });
+    } catch (err) {
+        console.error("Text save error:", err);
+    }
 });
 
 // --- SERVER LOGIC ---
 module.exports = async (req, res) => {
-    try {
-        // ClickUp Webhook kelganini tekshirish
-        if (req.body && req.body.webhook_id) {
-            await handleClickUpWebhook(req);
-            return res.status(200).send('OK');
-        }
-
-        // Telegram xabari
-        if (req.method === 'POST') {
+    if (req.method === 'POST') {
+        try {
+            // ClickUp Webhook
+            if (req.body && req.body.webhook_id) {
+                await handleClickUpWebhook(req);
+                return res.status(200).send('OK');
+            }
+            // Telegram Update
             await bot.handleUpdate(req.body);
             return res.status(200).send('OK');
+        } catch (err) {
+            console.error("Main Handler Error:", err);
+            return res.status(200).send('Error Handled');
         }
-
-        res.status(200).send('Bot is running...');
-    } catch (err) {
-        console.error("Main Handler Error:", err);
-        res.status(200).send('Error ignored');
     }
+    res.status(200).send('Bot is active!');
 };
