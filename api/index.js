@@ -18,15 +18,13 @@ const escapeHTML = (str) => {
 const logError = async (ctx, err, stage) => {
     console.error(`Error at ${stage}:`, err);
     try {
-        await ctx.reply(`❌ <b>Xatolik (${stage}):</b> <code>${escapeHTML(err.message)}</code>`, { parse_mode: 'HTML' });
+        await ctx.reply(`❌ <b>Xatolik (${stage}):</b> <code>${escapeHTML(err.message)}</code>. Iltimos xatolikni @uyqur_nurali ga yuboring`, { parse_mode: 'HTML' });
     } catch (e) {
         console.error("Xatolik xabarini yuborib bo'lmadi:", e);
     }
 };
 
 // 3. Bot buyruqlarini Telegram menyusiga qo'shish
-// Bu qism har bir so'rovda ishlashini oldini olish uchun faqat bir marta yoki admin buyrug'i bilan ishlatilishi kerak,
-// lekin Vercel uchun eng yaxshisi start bosilganda tekshirish.
 bot.telegram.setMyCommands([
     { command: 'start', description: 'Botni ishga tushirish' },
     { command: 'send', description: 'Hisobotlarni ko\'rish va yuborish' },
@@ -122,9 +120,9 @@ bot.command('send', async (ctx) => {
 
 // --- ACTIONS (TUGMALAR) ---
 
+// Guruhga yuborish tasdig'i
 bot.action('confirm_send', async (ctx) => {
     try {
-        // Yana bir bor tekshiramiz (balki mini app orqali o'chirilgandir)
         const { data, error } = await supabase
             .from('reports')
             .select('*')
@@ -132,27 +130,35 @@ bot.action('confirm_send', async (ctx) => {
             .eq('status', 'pending')
             .order('created_at', { ascending: true });
 
-        if (error) throw error;
-        if (!data || data.length === 0) {
-            return ctx.answerCbQuery("Yuborish uchun ma'lumot qolmadi!");
+        if (error || !data.length) {
+            return ctx.answerCbQuery("Yuborish uchun ma'lumot topilmadi (balki o'chirib yuborilgandir?)");
         }
 
-        let finalReport = `📅 <b>KUNLIK HISOBOT</b>\n👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n` +
+        // --- SANANI ANIQLASH 
+        const dateString = new Date().toLocaleDateString('ru-RU', {
+            timeZone: 'Asia/Tashkent',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        // Hisobot matnini shakllantirish
+        let finalReport = `📅 <b>KUNLIK #hisobot \n(${dateString})</b>\n` + 
+                          `👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n` +
                           `──────────────────\n`;
+        
         data.forEach((item, index) => {
             finalReport += `${index + 1}. ${escapeHTML(item.content)}\n`;
         });
-        finalReport += `──────────────────\n✅ #hisobot`;
+        
+        finalReport += `──────────────────\n`;
 
         // Guruhga yuborish
-        if (!process.env.GROUP_ID) throw new Error("GROUP_ID topilmadi!");
-        
         await ctx.telegram.sendMessage(process.env.GROUP_ID, finalReport, { parse_mode: 'HTML' });
         
-        // Statusni yangilash
+        // Bazada statusni o'zgartirish
         await supabase.from('reports').update({ status: 'sent' }).eq('user_id', ctx.from.id).eq('status', 'pending');
 
-        await ctx.editMessageText("🚀 <b>Hisobot muvaffaqiyatli yuborildi!</b>", { parse_mode: 'HTML' });
+        await ctx.editMessageText(`🚀 <b>Hisobot guruhga yuborildi!</b>\nSanasi: ${dateString}`, { parse_mode: 'HTML' });
     } catch (err) {
         await logError(ctx, err, "Confirm Send");
     }
