@@ -39,8 +39,7 @@ bot.start((ctx) => {
     ctx.reply(
         `👋 <b>Assalomu alaykum, ${escapeHTML(ctx.from.first_name)}!</b>\n\n` +
         `Men kunlik hisobotlarni yig'uvchi botman.\n` +
-        `/help buyrug'i bilan bot commandlarini ko'rishingiz mumkin.\n` +
-        `Qilgan ishlaringizni shunchaki yozib qoldiring. Kun oxirida /send buyrug'ini bilan guruhga hisobotni yuborsangiz bo'ladi.`,
+        `/help buyrug'i bilan bot commandlarini ko'rishingiz mumkin.\n`,
         { parse_mode: 'HTML' }
     );
 });
@@ -99,7 +98,7 @@ bot.command('send', async (ctx) => {
 
         // WebApp URL ni aniqlash (Vercel URL avtomatik olinadi yoki qo'lda kiritiladi)
         const webAppUrl = process.env.VERCEL_URL 
-            ? `${process.env.VERCEL_URL}` 
+            ? `https://${process.env.VERCEL_URL}` 
             : 'https://google.com'; // Fallback
 
         const keyboard = Markup.inlineKeyboard([
