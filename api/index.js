@@ -1,5 +1,7 @@
 const { Telegraf, Markup } = require('telegraf');
 const { createClient } = require('@supabase/supabase-js');
+const Groq = require("groq-sdk");
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Bot va Supabase ni sozlash
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -33,7 +35,23 @@ bot.telegram.setMyCommands([
 ]);
 
 // --- BUYRUQLAR (COMMANDS) ---
-
+// AI orqali matnni chiroyli qilish funksiyasi
+async function refineReportWithAI(text) {
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            {
+                role: "system",
+                content: "Sen professional yordamchisan. Berilgan ishlar ro'yxatini imlo xatolarini tuzatib, professional va tushunarli tilda, bandma-band (bullet points) qilib o'zbek tilida qayta yozib ber. Faqat natija matnini qaytar, ortiqcha gapirma."
+            },
+            {
+                role: "user",
+                content: text
+            }
+        ],
+        model: "llama3-8b-8192",
+    });
+    return chatCompletion.choices[0].message.content;
+}
 // /start
 bot.start((ctx) => {
     ctx.reply(
@@ -66,56 +84,39 @@ bot.command('clear', async (ctx) => {
     }
 });
 
-// /send - Asosiy funksiya
+// /send buyrug'i ichida AI ni ishlatish
 bot.command('send', async (ctx) => {
-    const loadingMsg = await ctx.reply("🔍 Hisobotlar yuklanmoqda...");
-
+    const loadingMsg = await ctx.reply("🤖 AI hisobotingizni sayqallamoqda...");
+    
     try {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('reports')
-            .select('*')
+            .select('content')
             .eq('user_id', ctx.from.id)
-            .eq('status', 'pending')
-            .order('created_at', { ascending: true });
+            .eq('status', 'pending');
 
-        if (error) throw error;
-
-        // Agar hisobot bo'lmasa
         if (!data || data.length === 0) {
-            return await ctx.telegram.editMessageText(
-                ctx.chat.id, 
-                loadingMsg.message_id, 
-                null, 
-                "📭 <b>Sizda hali yuborilmagan hisobotlar yo'q.</b>\nAvval ishlaringizni yozing.", 
-                { parse_mode: 'HTML' }
-            );
+            return ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, null, "Hali hisobotlar yo'q.");
         }
 
-        // Ro'yxatni shakllantirish
-        let reportText = `📋 <b>Bugungi ishlaringiz ro'yxati:</b>\n\n`;
-        data.forEach((item, index) => {
-            reportText += `<b>${index + 1}.</b> ${escapeHTML(item.content)}\n`;
-        });
-
-        // WebApp URL ni aniqlash (Vercel URL avtomatik olinadi yoki qo'lda kiritiladi)
-        const webAppUrl = process.env.VERCEL_URL 
-            ? `https://${process.env.VERCEL_URL}` 
-            : 'https://google.com'; // Fallback
+        const rawText = data.map((item, i) => `${i+1}. ${item.content}`).join('\n');
+        
+        // AI dan o'tkazamiz
+        const refinedText = await refineReportWithAI(rawText);
 
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback("✅ Guruhga yuborish", "confirm_send")],
-            [Markup.button.webApp("✍️ Tahrirlash (Mini App)", webAppUrl)],
-            [Markup.button.callback("❌ Bekor qilish", "cancel_preview")],
-            [Markup.button.callback("🗑 Tozalash", "clear_reports")]
+            [Markup.button.callback("✅ Tasdiqlash va yuborish", "confirm_send")],
+            [Markup.button.webApp("✍️ O'zim tahrirlayman", process.env.VERCEL_URL)]
         ]);
 
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
-        await ctx.reply(reportText, { parse_mode: 'HTML', ...keyboard });
-
+        await ctx.reply(`✨ <b>AI tomonidan tayyorlangan hisobot:</b>\n\n${refinedText}`, { 
+            parse_mode: 'HTML', 
+            ...keyboard 
+        });
+        
     } catch (err) {
-        // Xatolik bo'lsa loading xabarni o'chirib xatoni chiqaramiz
-        try { await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id); } catch(e){}
-        await logError(ctx, err, "Send Command");
+        await logError(ctx, err, "AI Refinement");
     }
 });
 
