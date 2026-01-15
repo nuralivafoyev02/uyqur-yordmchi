@@ -223,12 +223,10 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
             // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
-            if (req.body?.webhook_id) {
-                res.status(200).send('OK');   // ⚡ darhol
-                handleClickUpWebhook(req);    // background
-                return;
+            if (req.body && req.body.webhook_id) {
+                await handleClickUpWebhook(req);
+                return res.status(200).send('OK');
             }
-
 
             // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
             await bot.handleUpdate(req.body);
