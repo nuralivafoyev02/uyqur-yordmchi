@@ -99,7 +99,7 @@ bot.command('send', async (ctx) => {
 
         // WebApp URL ni aniqlash (Vercel URL avtomatik olinadi yoki qo'lda kiritiladi)
         const webAppUrl = process.env.VERCEL_URL 
-            ? `https://${process.env.VERCEL_URL}` 
+            ? `${process.env.VERCEL_URL}` 
             : 'https://google.com'; // Fallback
 
         const keyboard = Markup.inlineKeyboard([
@@ -143,8 +143,8 @@ bot.action('confirm_send', async (ctx) => {
             year: 'numeric'
         });
         // Hisobot matnini shakllantirish
-        let finalReport = `📅 <b>KUNLIK #hisobot\n</b>${dateString}\n` + 
-                          `👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n`;
+        let finalReport = `📅 <b>#hisobot ${dateString}</b>\n` + 
+                          `👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n\n`;
         
         data.forEach((item, index) => {
             finalReport += `${index + 1}. ${escapeHTML(item.content)}\n`;
