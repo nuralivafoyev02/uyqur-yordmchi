@@ -1,24 +1,195 @@
 <!DOCTYPE html>
-<html>
+<html lang="uz">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hisobotlarni Tahrirlash</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-        .item { background: white; padding: 10px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        button { background: #0088cc; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #222222);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --button-color: var(--tg-theme-button-color, #0088cc);
+            --button-text: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg: var(--tg-theme-secondary-bg-color, #f4f4f5);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 16px;
+            -webkit-user-select: none;
+        }
+
+        h3 { margin-bottom: 20px; font-weight: 600; }
+
+        #report-list { display: flex; flex-direction: column; gap: 12px; }
+
+        /* Card Style */
+        .report-card {
+            background-color: var(--secondary-bg);
+            padding: 12px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        .report-content {
+            font-size: 15px;
+            border: none;
+            background: transparent;
+            color: var(--text-color);
+            resize: none;
+            outline: none;
+            width: 100%;
+            padding: 0;
+        }
+
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-delete { background-color: #eb4034; color: white; }
+        .btn-save { background-color: var(--button-color); color: var(--button-text); }
+
+        /* Skeleton Loading */
+        .skeleton {
+            height: 80px;
+            background: linear-gradient(90deg, var(--secondary-bg) 25%, var(--bg-color) 50%, var(--secondary-bg) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 12px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--hint-color);
+            margin-top: 50px;
+        }
     </style>
 </head>
 <body>
-    <h3>Mening ishlarim</h3>
-    <div id="list"></div>
+
+    <h3 id="user-title">Mening ishlarim</h3>
+    
+    <div id="report-list">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        
-        // Supabase-dan ma'lumotlarni olish va chiqarish logikasi bu yerda bo'ladi
-        // tahrirlash (update) va o'chirish (delete) funksiyalari qo'shiladi
+        tg.ready();
+
+        // Supabase sozlamalari (Bularni o'zingiznikiga almashtiring)
+        const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const userId = tg.initDataUnsafe?.user?.id;
+        const listContainer = document.getElementById('report-list');
+
+        async function loadReports() {
+            if (!userId) {
+                listContainer.innerHTML = '<p class="empty-state">Telegram maʼlumotlari topilmadi.</p>';
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('reports')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                console.error(error);
+                tg.showAlert("Ma'lumot yuklashda xatolik yuz berdi.");
+                return;
+            }
+
+            renderReports(data);
+        }
+
+        function renderReports(reports) {
+            listContainer.innerHTML = '';
+
+            if (reports.length === 0) {
+                listContainer.innerHTML = '<p class="empty-state">Hozircha hisobotlar yo\'q. Botga qaytib xabar yozing.</p>';
+                return;
+            }
+
+            reports.forEach(report => {
+                const card = document.createElement('div');
+                card.className = 'report-card';
+                card.innerHTML = `
+                    <textarea class="report-content" rows="2" id="input-${report.id}">${report.content}</textarea>
+                    <div class="card-actions">
+                        <button class="btn btn-delete" onclick="deleteReport('${report.id}')">O'chirish</button>
+                        <button class="btn btn-save" id="btn-save-${report.id}" onclick="updateReport('${report.id}')">Saqlash</button>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        async function updateReport(id) {
+            const newContent = document.getElementById(`input-${id}`).value;
+            const saveBtn = document.getElementById(`btn-save-${id}`);
+            
+            saveBtn.innerText = "⏳...";
+            const { error } = await supabase
+                .from('reports')
+                .update({ content: newContent })
+                .eq('id', id);
+
+            if (error) {
+                tg.showScanQrPopup("Saqlashda xato!");
+            } else {
+                saveBtn.innerText = "✅";
+                setTimeout(() => { saveBtn.innerText = "Saqlash"; }, 2000);
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        async function deleteReport(id) {
+            tg.showConfirm("Ushbu ishni o'chirmoqchimisiz?", async (ok) => {
+                if (ok) {
+                    const { error } = await supabase.from('reports').delete().eq('id', id);
+                    if (!error) {
+                        loadReports();
+                        tg.HapticFeedback.notificationOccurred('warning');
+                    }
+                }
+            });
+        }
+
+        // Yuklashni boshlash
+        loadReports();
     </script>
 </body>
 </html>
