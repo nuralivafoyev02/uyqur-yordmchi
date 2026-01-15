@@ -41,10 +41,10 @@ async function handleClickUpWebhook(req) {
 
                     if (userMap) {
                         const text = `🆕 <b>Yangi ClickUp vazifasi biriktirildi!</b>\n\n` +
-                                     `📌 <b>${escapeHTML(task.name)}</b>\n` +
-                                     `📝 ${escapeHTML(task.description || "Tavsif yo'q")}\n\n` +
-                                     `<i>Ishni boshlagach statusni yangilab qo'ying:</i>`;
-                        
+                            `📌 <b>${escapeHTML(task.name)}</b>\n` +
+                            `📝 ${escapeHTML(task.description || "Tavsif yo'q")}\n\n` +
+                            `<i>Ishni boshlagach statusni yangilab qo'ying:</i>`;
+
                         const keyboard = Markup.inlineKeyboard([
                             [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
                             [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
@@ -73,10 +73,10 @@ bot.command('bind', async (ctx) => {
 
     const { error } = await supabase
         .from('users_mapping')
-        .upsert({ 
-            telegram_id: parseInt(tg_id), 
-            clickup_user_id: parseInt(cu_id), 
-            full_name: fullName 
+        .upsert({
+            telegram_id: parseInt(tg_id),
+            clickup_user_id: parseInt(cu_id),
+            full_name: fullName
         });
 
     if (error) {
@@ -88,17 +88,17 @@ bot.command('bind', async (ctx) => {
 
 bot.start(async (ctx) => {
     const welcome = `Assalomu alaykum, <b>${escapeHTML(ctx.from.first_name)}</b>!\n\n` +
-                    `Men sizning ish hisobotlaringizni yig'ish va ClickUp vazifalaringizni boshqarishda yordam beraman.\n\n` +
-                    `📖 Buyruqlar va yordam: /help`;
+        `Men sizning ish hisobotlaringizni yig'ish va ClickUp vazifalaringizni boshqarishda yordam beraman.\n\n` +
+        `📖 Buyruqlar va yordam: /help`;
     await ctx.reply(welcome, { parse_mode: 'HTML' });
 });
 
 bot.help(async (ctx) => {
     const helpText = `🛠 <b>Bot buyruqlari:</b>\n\n` +
-                     `/send - Saqlangan barcha ishlarni ko'rish va guruhga yuborish\n` +
-                     `✍️ <b>Matn yozing</b> - Ishlaringizni botga oddiy xabar sifatida yuborsangiz, ular hisobotga qo'shiladi.\n` +
-                     `📌 <b>ClickUp</b> - Sizga biriktirilgan tasklar avtomatik keladi.\n\n` +
-                     `<i>Eslatma: ClickUp'da taskni "Yakunlash" bossangiz, u avtomatik hisobotingizga qo'shiladi.</i>`;
+        `/send - Saqlangan barcha ishlarni ko'rish va guruhga yuborish\n` +
+        `✍️ <b>Matn yozing</b> - Ishlaringizni botga oddiy xabar sifatida yuborsangiz, ular hisobotga qo'shiladi.\n` +
+        `📌 <b>ClickUp</b> - Sizga biriktirilgan tasklar avtomatik keladi.\n\n` +
+        `<i>Eslatma: ClickUp'da taskni "Yakunlash" bossangiz, u avtomatik hisobotingizga qo'shiladi.</i>`;
     await ctx.reply(helpText, { parse_mode: 'HTML' });
 });
 
@@ -166,7 +166,7 @@ bot.action('confirm_send', async (ctx) => {
 
         const dateString = new Date().toLocaleDateString('uz-UZ', { timeZone: 'Asia/Tashkent' });
         let finalReport = `📅 <b>#hisobot ${dateString}</b>\n👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n\n`;
-        
+
         data.forEach((item, index) => {
             finalReport += `${index + 1}. ${escapeHTML(item.content)}\n`;
         });
@@ -194,8 +194,11 @@ bot.on('text', async (ctx) => {
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
-            // ClickUp Webhook
+            // ⚠️ DEBUG: Kelayotgan har qanday so'rovni log qilamiz
+            console.log("LOG: Yangi so'rov keldi!", JSON.stringify(req.body));
+
             if (req.body && req.body.webhook_id) {
+                console.log("LOG: ClickUp Webhook aniqlandi!");
                 await handleClickUpWebhook(req);
                 return res.status(200).send('OK');
             }
