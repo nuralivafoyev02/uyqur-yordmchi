@@ -4,62 +4,36 @@ const { createClient } = require('@supabase/supabase-js');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Bot buyruqlari tavsifi (Telegram menyusida ko'rinadi)
-bot.telegram.setMyCommands([
-    { command: 'start', description: 'Botni ishga tushirish' },
-    { command: 'send', description: 'Hisobotni ko\'rish va guruhga yuborish' },
-    { command: 'clear', description: 'Yozilgan hisobotlarni ochirish' },
-    { command: 'help', description: 'Yordam va yo\'riqnoma' }
-]);
-
-// Markazlashgan xato loger
+// Markazlashgan xato loger (Telegramga xabar yuboradi)
 const logError = async (ctx, err, stage) => {
     console.error(`Error at ${stage}:`, err);
-    const msg = `❌ *Xatolik yuz berdi (${stage})*\n\nTexnik xato: \`${err.message}\` \nIltimos, administratorga murojaat qiling.`;
-    if (ctx.callbackQuery) {
-        await ctx.answerCbQuery("Xatolik yuz berdi!");
+    const msg = `❌ *Xatolik yuz berdi (${stage})*\n\nTexnik xato: \`${err.message}\``;
+    try {
+        return await ctx.reply(msg);
+    } catch (e) {
+        console.error("Xabarni yuborib bo'lmadi", e);
     }
-    return ctx.replyWithMarkdown(msg);
 };
 
-// --- BUYRUQLAR ---
-
 bot.start((ctx) => {
-    const welcomeMsg = `👋 *Assalomu alaykum, ${ctx.from.first_name}!*\n\n` +
-        `Men kunlik hisobotlarni yig'uvchi botman.\n\n` +
-        `📝 *Qanday foydalanish kerak?*\n` +
-        `1. Shunchaki bajargan ishlaringizni xabar sifatida yozing.\n` +
-        `2. Bot ularni avtomatik saqlab boradi.\n` +
-        `3. Kun oxirida /send buyrug'ini bosing.\n` +
-        `4. Hammasi tayyor bo'lsa, tasdiqlang va guruhga yuboring.`;
-    ctx.replyWithMarkdown(welcomeMsg);
-});
-
-bot.command('help', (ctx) => {
-    const helpText = `📖 *Bot buyruqlari bo'yicha qo'llanma:*\n\n` +
-        `/send - Hozirgi to'plangan hisobotlarni ko'rish va boshqarish paneli.\n` +
-        `/clear - To'plangan (yuborilmagan) barcha ishlarni o'chirib tashlash.\n` +
-        `*Mini App* - Tahrirlash tugmasi orqali ishlarni bittalab o'zgartirish mumkin.`;
-    ctx.replyWithMarkdown(helpText);
+    ctx.reply(`👋 *Assalomu alaykum, ${ctx.from.first_name}!* \nIshlaringizni ketma-ket yozib qoldiring.`);
 });
 
 // Hisobotni saqlash
 bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-
     try {
         const { error } = await supabase
             .from('reports')
             .insert([{ user_id: ctx.from.id, content: ctx.message.text }]);
-
         if (error) throw error;
-        ctx.reply("✅ Saqlandi. Yana yozishingiz mumkin.");
+        ctx.reply("✅ Saqlandi.");
     } catch (err) {
         await logError(ctx, err, "Saving Report");
     }
 });
 
-// Hisobotni boshqarish paneli
+// /send buyrug'i - Hisobotni ko'rib chiqish
 bot.command('send', async (ctx) => {
     try {
         const { data, error } = await supabase
@@ -70,25 +44,30 @@ bot.command('send', async (ctx) => {
             .order('created_at', { ascending: true });
 
         if (error) throw error;
-
         if (!data || data.length === 0) {
-            return ctx.reply("📭 Sizda hali yuborilmagan hisobotlar yo'q. Avval bajargan ishlaringizni yozing.");
+            return ctx.reply("📭 Yuborish uchun hisobotlar topilmadi.");
         }
 
-        let reportText = `📝 *Sizning hisobotingiz:* \n\n`;
+        // Chiroyli column formatidagi ro'yxat
+        let reportText = `📋 *Bugungi ishlaringiz ro'yxati:*\n\n`;
         data.forEach((item, index) => {
-            reportText += `📍 ${item.content}\n`;
+            // Markdown xatoligini oldini olish uchun matnni tozalash oddiyroq usuli
+            const cleanContent = item.content.replace(/[*_`]/g, ''); 
+            reportText += `*${index + 1}.* ${cleanContent}\n`;
         });
 
+        const webAppUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://google.com';
+
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback("🚀 Guruhga yuborish", "confirm_send")],
-            [Markup.button.webApp("✍️ Tahrirlash (Mini App)", `https://${process.env.VERCEL_URL}`)],
-            [Markup.button.callback("🗑 Tozalash", "clear_reports")]
+            [Markup.button.callback("✅ Tayyor, guruhga yuborish", "confirm_send")],
+            [Markup.button.webApp("✍️ Tahrirlash", webAppUrl)],
+            [Markup.button.callback("❌ Bekor qilish", "cancel_preview")],
+            [Markup.button.callback("🗑 Hammasini o'chirish", "clear_reports")]
         ]);
 
-        ctx.replyWithMarkdown(reportText, keyboard);
+        ctx.reply(reportText, keyboard);
     } catch (err) {
-        await logError(ctx, err, "Generating Preview");
+        await logError(ctx, err, "Send Command");
     }
 });
 
@@ -99,10 +78,10 @@ bot.action('confirm_send', async (ctx) => {
             .from('reports')
             .select('*')
             .eq('user_id', ctx.from.id)
-            .eq('status', 'pending');
+            .eq('status', 'pending')
+            .order('created_at', { ascending: true });
 
-        if (error) throw error;
-        if (data.length === 0) return ctx.answerCbQuery("Hisobotlar topilmadi.");
+        if (error || !data.length) throw new Error("Hisobotlar topilmadi");
 
         let finalReport = `📅 *KUNLIK HISOBOT*\n👤 *Xodim:* ${ctx.from.first_name}\n` +
                           `──────────────────\n`;
@@ -111,39 +90,37 @@ bot.action('confirm_send', async (ctx) => {
         });
         finalReport += `──────────────────\n✅ #hisobot`;
 
-        if (!process.env.GROUP_ID) {
-            throw new Error("GROUP_ID konfiguratsiyasi topilmadi!");
-        }
-
         await ctx.telegram.sendMessage(process.env.GROUP_ID, finalReport, { parse_mode: 'Markdown' });
-
-        // Statusni yangilash
+        
+        // Statusni yuborildi (sent) ga o'zgartirish
         await supabase.from('reports').update({ status: 'sent' }).eq('user_id', ctx.from.id).eq('status', 'pending');
 
-        await ctx.editMessageText("🚀 Hisobot muvaffaqiyatli yuborildi!");
+        await ctx.editMessageText("🚀 Hisobot guruhga yuborildi!");
     } catch (err) {
-        await logError(ctx, err, "Sending to Group");
+        await logError(ctx, err, "Confirm Send Action");
     }
 });
 
-// Tozalash buyrug'i (callback va command sifatida)
-const clearAction = async (ctx) => {
+// Bekor qilish (Ma'lumot o'chmaydi, shunchaki preview yopiladi)
+bot.action('cancel_preview', async (ctx) => {
+    try {
+        await ctx.editMessageText("⏸ Yuborish bekor qilindi. Ishlarni yozishda davom etishingiz mumkin.");
+    } catch (err) {
+        console.error(err);
+    }
+});
+
+// Tozalash (Hammasini o'chirib tashlash)
+bot.action('clear_reports', async (ctx) => {
     try {
         await supabase.from('reports').delete().eq('user_id', ctx.from.id).eq('status', 'pending');
-        const msg = "🗑 Barcha yozilgan hisobotlar tozalandi.";
-        if (ctx.callbackQuery) {
-            ctx.editMessageText(msg);
-        } else {
-            ctx.reply(msg);
-        }
+        await ctx.editMessageText("🗑 Barcha hisobotlar o'chirildi.");
     } catch (err) {
-        await logError(ctx, err, "Clearing Reports");
+        await logError(ctx, err, "Clear Action");
     }
-};
+});
 
-bot.command('clear', clearAction);
-bot.action('clear_reports', clearAction);
-
+// Vercel Webhook handler
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
@@ -151,9 +128,9 @@ module.exports = async (req, res) => {
             res.status(200).send('OK');
         } catch (err) {
             console.error(err);
-            res.status(500).send('Internal Server Error');
+            res.status(500).send('Error');
         }
     } else {
-        res.status(200).send('Bot is running...');
+        res.status(200).send('Bot is working...');
     }
 };
