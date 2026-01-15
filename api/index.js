@@ -24,20 +24,29 @@ const escapeHTML = (str) => {
 };
 
 // --- CLICKUP WEBHOOK HANDLER (ASOSIY QISM) ---
-// Kutish funksiyasi
-const delay = ms => new Promise(res => setTimeout(res, ms));
+const processedWebhooks = new Set();
 
 async function handleClickUpWebhook(req) {
-    const { event, task_id } = req.body;
-    console.log(`LOG: Hodisa keldi: ${event}. 3 soniya kutilmoqda...`);
+    const { event, task_id, webhook_id } = req.body;
+    
+    // 1. Agar bu webhook_id yaqinda ishlangan bo'lsa, to'xtatamiz
+    const duplicateKey = `${webhook_id}_${task_id}_${event}`;
+    if (processedWebhooks.has(duplicateKey)) return;
+    processedWebhooks.add(duplicateKey);
+    
+    // Keshni tozalab turish (xotira to'lib ketmasligi uchun)
+    setTimeout(() => processedWebhooks.delete(duplicateKey), 60000);
+
+    console.log(`LOG: Ishlov berilmoqda: ${event} | Task: ${task_id}`);
 
     try {
-        // ClickUp ma'lumotlarni yangilab olishi uchun ozgina kutamiz
-        await delay(3000); 
+        // Ozgina kutish (ClickUp bazasi yangilanishi uchun)
+        await new Promise(res => setTimeout(res, 2000));
 
-        // Task ma'lumotlarini qayta so'raymiz
         const task = await clickupRequest(`task/${task_id}`);
-        console.log(`LOG: Task yuklandi: ${task.name}. Assignees soni: ${task.assignees?.length || 0}`);
+        if (!task || !task.name) return;
+
+        console.log(`LOG: Task yuklandi: ${task.name}. Assignees: ${task.assignees?.length}`);
 
         if (task.assignees && task.assignees.length > 0) {
             for (let assignee of task.assignees) {
@@ -48,10 +57,10 @@ async function handleClickUpWebhook(req) {
                     .single();
 
                 if (userMap) {
-                    const text = `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
+                    const text = `📌 <b>Yangi vazifa:</b>\n\n` +
                                  `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
                                  `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
-                                 `<b><a href="${task.url}">ClickUp'da ochish</a></b>`;
+                                 `<a href="${task.url}">ClickUp'da ochish</a>`;
                     
                     const keyboard = Markup.inlineKeyboard([
                         [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
@@ -59,15 +68,11 @@ async function handleClickUpWebhook(req) {
                     ]);
 
                     await bot.telegram.sendMessage(userMap.telegram_id, text, { parse_mode: 'HTML', ...keyboard });
-                    console.log(`✅ Xabar yuborildi TG ID: ${userMap.telegram_id}`);
                 }
             }
-        } else {
-            // Agar hali ham bo'sh bo'lsa, logga yozamiz
-            console.log("⚠️ 3 soniyadan keyin ham assignee topilmadi.");
         }
     } catch (err) {
-        console.error("❌ Webhook Error:", err);
+        console.error("❌ Webhook Logic Error:", err.message);
     }
 }
 // --- TELEGRAM COMMANDS ---
@@ -201,24 +206,24 @@ bot.on('text', async (ctx) => {
     }
 });
 
-// --- SERVER LOGIC ---
+// SERVER HANDLER (MUHIM!)
 module.exports = async (req, res) => {
+    // ClickUp'ni kuttirmaslik uchun darhol 200 qaytaramiz
     if (req.method === 'POST') {
-        try {
-            // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
-            if (req.body && req.body.webhook_id) {
-                await handleClickUpWebhook(req);
-                return res.status(200).send('OK');
-            }
-
-            // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
-            await bot.handleUpdate(req.body);
-            return res.status(200).send('OK');
-
-        } catch (err) {
-            console.error("Main Handler Error:", err);
-            return res.status(200).send('OK'); // Vercel xato bermasligi uchun
+        if (req.body && req.body.webhook_id) {
+            // Birinchi javob beramiz, keyin ishlaymiz
+            res.status(200).send('OK'); 
+            return handleClickUpWebhook(req); 
         }
+
+        try {
+            await bot.handleUpdate(req.body);
+            res.status(200).send('OK');
+        } catch (err) {
+            console.error(err);
+            if (!res.writableEnded) res.status(200).send('OK');
+        }
+    } else {
+        res.status(200).send('Active');
     }
-    res.status(200).send('Bot is active!');
 };
