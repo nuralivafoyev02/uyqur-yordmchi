@@ -1,5 +1,13 @@
 {
+  "name": "daily-report-bot",
+  "version": "1.0.0",
+  "description": "Telegram report bot with Supabase",
+  "main": "api/index.js",
   "dependencies": {
-    "groq-sdk": "^0.37.0"
+    "telegraf": "^4.16.3",
+    "@supabase/supabase-js": "^2.39.3"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
