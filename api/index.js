@@ -1,8 +1,16 @@
 const { Telegraf, Markup } = require('telegraf');
 const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const bot = new Telegraf(process.env.BOT_TOKEN);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error("Xatolik: SUPABASE_URL yoki SUPABASE_KEY topilmadi!");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Xatoliklarni ushlash va foydalanuvchiga bildirish
 const handleError = async (ctx, error) => {
