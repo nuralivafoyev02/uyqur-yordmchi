@@ -24,21 +24,24 @@ const escapeHTML = (str) => {
 };
 
 // --- CLICKUP WEBHOOK HANDLER (ASOSIY QISM) ---
+// Kutish funksiyasi
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
-    console.log(`LOG: ClickUp hodisasi keldi: ${event} | Task: ${task_id}`);
+    console.log(`LOG: Hodisa keldi: ${event}. 3 soniya kutilmoqda...`);
 
     try {
-        // 1. Task ma'lumotlarini ClickUp API dan yangilab olamiz
+        // ClickUp ma'lumotlarni yangilab olishi uchun ozgina kutamiz
+        await delay(3000); 
+
+        // Task ma'lumotlarini qayta so'raymiz
         const task = await clickupRequest(`task/${task_id}`);
-        console.log(`LOG: Task nomi - ${task.name}, Mas'ullar soni - ${task.assignees?.length || 0}`);
+        console.log(`LOG: Task yuklandi: ${task.name}. Assignees soni: ${task.assignees?.length || 0}`);
 
         if (task.assignees && task.assignees.length > 0) {
             for (let assignee of task.assignees) {
-                console.log(`LOG: Tekshirilmoqda ClickUp ID - ${assignee.id}`);
-
-                // 2. Supabase'dan mappingni qidiramiz
-                const { data: userMap, error: mapError } = await supabase
+                const { data: userMap } = await supabase
                     .from('users_mapping')
                     .select('telegram_id')
                     .eq('clickup_user_id', assignee.id)
@@ -57,15 +60,14 @@ async function handleClickUpWebhook(req) {
 
                     await bot.telegram.sendMessage(userMap.telegram_id, text, { parse_mode: 'HTML', ...keyboard });
                     console.log(`✅ Xabar yuborildi TG ID: ${userMap.telegram_id}`);
-                } else {
-                    console.log(`⚠️ Bazada ${assignee.id} uchun Telegram ID topilmadi.`);
                 }
             }
         } else {
-            console.log("⚠️ Xabar yuborilmadi: Vazifaga hali hech kim biriktirilmagan.");
+            // Agar hali ham bo'sh bo'lsa, logga yozamiz
+            console.log("⚠️ 3 soniyadan keyin ham assignee topilmadi.");
         }
     } catch (err) {
-        console.error("❌ Webhook Logic Error:", err);
+        console.error("❌ Webhook Error:", err);
     }
 }
 // --- TELEGRAM COMMANDS ---
