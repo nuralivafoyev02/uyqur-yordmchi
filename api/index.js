@@ -51,7 +51,7 @@ bot.help((ctx) => {
         `📝 <b>Yordam bo'limi:</b>\n\n` +
         `/send - Yozilgan hisobotlarni ko'rish va guruhga yuborish.\n` +
         `/clear - Yuborilmagan barcha hisobotlarni o'chirib tashlash.\n` +
-        `\nShunchaki matn yozsangiz, uni hisobot sifatida saqlab qo'yaman.`,
+        `\nShunchaki matn yozsangiz, uni hisobot sifatida saqlab qo'yaman va guruhga chiroyli formatda yuboraman.`,
         { parse_mode: 'HTML' }
     );
 });
