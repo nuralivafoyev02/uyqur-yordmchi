@@ -3,6 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const ADMIN_ID = 12345678; // Bu yerga o'z TG ID-ingizni qo'ying
 
 // ClickUp API Helper
 const clickupRequest = async (endpoint, method = 'GET', body = null) => {
@@ -58,8 +59,32 @@ async function handleClickUpWebhook(req) {
         }
     }
 }
-
 // --- TELEGRAM COMMANDS ---
+// Faqat admin ishlata oladigan komanda - foydalanuvchilarni bog'lash
+bot.command('bind', async (ctx) => {
+    if (ctx.from.id !== ADMIN_ID) return ctx.reply("Siz admin emassiz!");
+
+    // Format: /bind [TG_ID] [ClickUp_ID] [Ism]
+    const args = ctx.message.text.split(' ').slice(1);
+    if (args.length < 3) return ctx.reply("Xato! Format: /bind TG_ID ClickUp_ID Ism");
+
+    const [tg_id, cu_id, ...nameParts] = args;
+    const fullName = nameParts.join(' ');
+
+    const { error } = await supabase
+        .from('users_mapping')
+        .upsert({ 
+            telegram_id: parseInt(tg_id), 
+            clickup_user_id: parseInt(cu_id), 
+            full_name: fullName 
+        });
+
+    if (error) {
+        ctx.reply(`Xato: ${error.message}`);
+    } else {
+        ctx.reply(`✅ ${fullName} muvaffaqiyatli bog'landi!`);
+    }
+});
 
 bot.start(async (ctx) => {
     const welcome = `Assalomu alaykum, <b>${escapeHTML(ctx.from.first_name)}</b>!\n\n` +
