@@ -29,50 +29,69 @@ const delay = ms => new Promise(res => setTimeout(res, ms));
 
 async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
-    if (event !== 'taskCreated') {
-        console.log(`SKIP: ${event}`);
+
+    // Faqat kerakli eventlar
+    if (event !== 'taskCreated' && event !== 'taskUpdated') {
         return;
     }
-    console.log(`LOG: Hodisa keldi: ${event}. 3 soniya kutilmoqda...`);
 
-    try {
-        // ClickUp ma'lumotlarni yangilab olishi uchun ozgina kutamiz
-        await delay(3000);
+    // 🔒 DUPLICATE LOCK (ENG MUHIM QISM)
+    const { data: exists } = await supabase
+        .from('clickup_notifications')
+        .select('task_id')
+        .eq('task_id', task_id)
+        .single();
 
-        // Task ma'lumotlarini qayta so'raymiz
-        const task = await clickupRequest(`task/${task_id}`);
-        console.log(`LOG: Task yuklandi: ${task.name}. Assignees soni: ${task.assignees?.length || 0}`);
-        if (task.assignees && task.assignees.length > 0) {
-            for (let assignee of task.assignees) {
-                const { data: userMap } = await supabase
-                    .from('users_mapping')
-                    .select('telegram_id')
-                    .eq('clickup_user_id', assignee.id)
-                    .single();
+    if (exists) {
+        console.log(`⛔ Skip duplicate task: ${task_id}`);
+        return;
+    }
 
-                if (userMap) {
-                    const text = `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
-                        `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
-                        `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
-                        `<a href="${task.url}">ClickUp'da ochish</a>`;
+    // ClickUp assignee yozib ulgurishi uchun kutamiz
+    await delay(3000);
 
-                    const keyboard = Markup.inlineKeyboard([
-                        [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
-                        [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
-                    ]);
+    const task = await clickupRequest(`task/${task_id}`);
 
-                    await bot.telegram.sendMessage(userMap.telegram_id, text, { parse_mode: 'HTML', ...keyboard });
-                    console.log(`✅ Xabar yuborildi TG ID: ${userMap.telegram_id}`);
-                }
-            }
-        } else {
-            // Agar hali ham bo'sh bo'lsa, logga yozamiz
-            console.log("⚠️ 3 soniyadan keyin ham assignee topilmadi.");
-        }
-    } catch (err) {
-        console.error("❌ Webhook Error:", err);
+    if (!task.assignees || !task.assignees.length) {
+        console.log('⚠️ Assignee yo‘q, skip');
+        return;
+    }
+
+    // 🔐 LOCKNI OLDINDAN YOZIB QO‘YAMIZ (race condition yo‘q)
+    await supabase
+        .from('clickup_notifications')
+        .insert([{ task_id }]);
+
+    for (const assignee of task.assignees) {
+        const { data: userMap } = await supabase
+            .from('users_mapping')
+            .select('telegram_id')
+            .eq('clickup_user_id', assignee.id)
+            .single();
+
+        if (!userMap) continue;
+
+        const text =
+            `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
+            `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
+            `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
+            `<a href="${task.url}">ClickUp'da ochish</a>`;
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
+            [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
+        ]);
+
+        await bot.telegram.sendMessage(
+            userMap.telegram_id,
+            text,
+            { parse_mode: 'HTML', ...keyboard }
+        );
+
+        console.log(`✅ Task ${task_id} → TG ${userMap.telegram_id}`);
     }
 }
+
 // --- TELEGRAM COMMANDS ---
 // Faqat admin ishlata oladigan komanda - foydalanuvchilarni bog'lash
 bot.command('bind', async (ctx) => {
