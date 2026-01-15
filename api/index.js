@@ -51,7 +51,7 @@ async function handleClickUpWebhook(req) {
                     const text = `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
                                  `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
                                  `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
-                                 `<a href="${task.url}">ClickUp'da ochish</a>`;
+                                 `<b><a href="${task.url}">ClickUp'da ochish</a></b>`;
                     
                     const keyboard = Markup.inlineKeyboard([
                         [Markup.button.callback("🚀 Jarayonda", `cu_status_process_${task_id}`)],
@@ -205,26 +205,20 @@ bot.on('text', async (ctx) => {
 module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
-            // ClickUp Webhook kelganda
+            // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
             if (req.body && req.body.webhook_id) {
-                // 1. ClickUp-ga darhol javob qaytaramiz (Retry-ni to'xtatish uchun)
-                res.status(200).send('OK');
-
-                // 2. Mantiqni fonda ishga tushiramiz (await qilmasdan)
-                handleClickUpWebhook(req).catch(err => console.error("Background Logic Error:", err));
-                return; 
+                await handleClickUpWebhook(req);
+                return res.status(200).send('OK');
             }
 
-            // Telegram xabarlarini odatdagidek kutib olamiz
+            // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
             await bot.handleUpdate(req.body);
             return res.status(200).send('OK');
 
         } catch (err) {
             console.error("Main Handler Error:", err);
-            // Xato bo'lsa ham 200 qaytaramiz, aks holda ClickUp qiynayveradi
-            if (!res.writableEnded) res.status(200).send('OK');
+            return res.status(200).send('OK'); // Vercel xato bermasligi uchun
         }
-    } else {
-        res.status(200).send('Bot is active!');
     }
+    res.status(200).send('Bot is active!');
 };
