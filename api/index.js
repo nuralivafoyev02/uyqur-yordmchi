@@ -35,6 +35,7 @@ async function handleClickUpWebhook(req) {
         // 2. Vazifada mas'ul xodimlar (assignees) borligini tekshiramiz
         if (task.assignees && task.assignees.length > 0) {
             for (let assignee of task.assignees) {
+                console.log(`LOG: Tekshirilmoqda assignee ID - ${assignee.id}`);
                 // 3. Supabase'dan xodimning Telegram ID sini topamiz
                 const { data: userMap } = await supabase
                     .from('users_mapping')
