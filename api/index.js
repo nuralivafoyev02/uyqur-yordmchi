@@ -1,103 +1,39 @@
 const { Telegraf, Markup } = require('telegraf');
 const { createClient } = require('@supabase/supabase-js');
-const Groq = require("groq-sdk");
 
+// Bot va Supabase ni sozlash
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// 1. HTML uchun maxsus belgilarni tozalash (Xavfsizlik)
 const escapeHTML = (str) => {
     if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 };
 
+// 2. Markazlashgan xatolarni boshqarish
 const logError = async (ctx, err, stage) => {
     console.error(`Error at ${stage}:`, err);
     try {
-        await ctx.reply(`❌ <b>Xatolik (${stage}):</b> <code>${escapeHTML(err.message)}</code>`, { parse_mode: 'HTML' });
-    } catch (e) { console.error(e); }
+        await ctx.reply(`❌ <b>Xatolik (${stage}):</b> <code>${escapeHTML(err.message)}</code>. Iltimos xatolikni @uyqur_nurali ga yuboring`, { parse_mode: 'HTML' });
+    } catch (e) {
+        console.error("Xatolik xabarini yuborib bo'lmadi:", e);
+    }
 };
 
-// AI funksiyasini try-catch bilan o'raymiz
-async function refineReportWithAI(text) {
-    try {
-        const chatCompletion = await groq.chat.completions.create({
-            messages: [
-                {
-                    role: "system",
-                    content: "Sen professional yordamchisan. Ishlar ro'yxatini imlo xatolarini tuzatib, professional va tushunarli tilda, bandma-band (• belgisi bilan) o'zbek tilida qayta yozib ber. Faqat natija matnini qaytar."
-                },
-                { role: "user", content: text }
-            ],
-            model: "llama3-8b-8192",
-            timeout: 8000 // 8 soniyadan keyin to'xtatish (Vercel uchun)
-        });
-        return chatCompletion.choices[0].message.content;
-    } catch (e) {
-        console.error("AI Error:", e);
-        return text; // AI xato bersa xomaki matnni qaytaramiz
-    }
-}
+// 3. Bot buyruqlarini Telegram menyusiga qo'shish
+bot.telegram.setMyCommands([
+    { command: 'start', description: 'Botni ishga tushirish' },
+    { command: 'send', description: 'Hisobotlarni ko\'rish va yuborish' },
+    { command: 'clear', description: 'Yozilganlarni tozalash' },
+    { command: 'help', description: 'Yordam' }
+]);
 
-bot.command('send', async (ctx) => {
-    const loadingMsg = await ctx.reply("🤖 AI hisobotingizni tahlil qilmoqda...");
-    
-    try {
-        const { data, error } = await supabase
-            .from('reports')
-            .select('content')
-            .eq('user_id', ctx.from.id)
-            .eq('status', 'pending');
+// --- BUYRUQLAR (COMMANDS) ---
 
-        if (error || !data || data.length === 0) {
-            return ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, null, "📭 Yuborish uchun ma'lumot topilmadi.");
-        }
-
-        const rawText = data.map((item, i) => `${i+1}. ${item.content}`).join('\n');
-        
-        // AI dan o'tkazamiz
-        const refinedText = await refineReportWithAI(rawText);
-
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback("✅ Tasdiqlash va yuborish", "confirm_send")],
-            [Markup.button.webApp("✍️ Tahrirlash", `https://${process.env.VERCEL_URL || ''}`)],
-            [Markup.button.callback("🗑 Tozalash", "clear_reports")]
-        ]);
-
-        await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
-        // MUHIM: AI matnini xabar ichida saqlab qolamiz
-        await ctx.reply(`✨ <b>AI tomonidan tahrirlangan variant:</b>\n\n${escapeHTML(refinedText)}\n\n<i>Guruhga yuborishni tasdiqlaysizmi?</i>`, { 
-            parse_mode: 'HTML', 
-            ...keyboard 
-        });
-        
-    } catch (err) {
-        await logError(ctx, err, "Send Process");
-    }
-});
-
-bot.action('confirm_send', async (ctx) => {
-    try {
-        // Xabardan AI tayyorlagan matnni ajratib olamiz
-        const messageText = ctx.callbackQuery.message.text || "";
-        const refinedPart = messageText.split("variant:")[1]?.split("Guruhga yuborish")[0]?.trim() || "Hisobot mazmuni topilmadi.";
-
-        const dateString = new Date().toLocaleDateString('ru-RU', { timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', year: 'numeric' });
-        
-        let finalReport = `📅 <b>KUNLIK #hisobot</b> (${dateString})\n` + 
-                          `👤 <b>Xodim:</b> ${escapeHTML(ctx.from.first_name)}\n` +
-                          `──────────────────\n` +
-                          `${escapeHTML(refinedPart)}\n` +
-                          `──────────────────`;
-
-        await ctx.telegram.sendMessage(process.env.GROUP_ID, finalReport, { parse_mode: 'HTML' });
-        await supabase.from('reports').update({ status: 'sent' }).eq('user_id', ctx.from.id).eq('status', 'pending');
-
-        await ctx.editMessageText(`🚀 <b>Hisobot guruhga yuborildi!</b>`, { parse_mode: 'HTML' });
-    } catch (err) {
-        await logError(ctx, err, "Final Send");
-    }
-});
 // /start
 bot.start((ctx) => {
     ctx.reply(
@@ -132,7 +68,7 @@ bot.command('clear', async (ctx) => {
 
 // /send - Asosiy funksiya
 bot.command('send', async (ctx) => {
-    const loadingMsg = await ctx.reply("🤖 AI hisobotingizni sayqallamoqda...");
+    const loadingMsg = await ctx.reply("🔍 Hisobotlar yuklanmoqda...");
 
     try {
         const { data, error } = await supabase
