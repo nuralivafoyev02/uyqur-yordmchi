@@ -209,9 +209,18 @@ bot.action('confirm_send', async (ctx) => {
 });
 
 bot.on('text', async (ctx) => {
+    // 1. Agar xabar buyruq bo'lsa (/) o'tkazib yuborish
     if (ctx.message.text.startsWith('/')) return;
+
+    // 2. FAQAT shaxsiy xabarlarni saqlash (Guruh xabarlarini e'tiborsiz qoldirish)
+    if (ctx.chat.type !== 'private') return;
+
     try {
-        await supabase.from('reports').insert([{ user_id: ctx.from.id, content: ctx.message.text, status: 'pending' }]);
+        await supabase.from('reports').insert([{ 
+            user_id: ctx.from.id, 
+            content: ctx.message.text, 
+            status: 'pending' 
+        }]);
         await ctx.reply("✅ Hisobotga qo'shildi.", { reply_to_message_id: ctx.message.message_id });
     } catch (err) {
         console.error("Text save error:", err);
