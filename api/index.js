@@ -216,6 +216,139 @@ bot.command('bind', async (ctx) => {
         ctx.reply(`✅ ${fullName} muvaffaqiyatli bog'landi!`);
     }
 });
+// =========================
+// 📣 ADMIN BROADCAST: /message
+// =========================
+// Ishlatish:
+// 1) /message Salom hammaga! Bugun soat 18:00 da yig'ilish bo'ladi.
+// 2) Biror xabarga reply qilib, keyin /message yozsangiz — o'sha xabar hamma user'ga nusxa bo'lib ketadi.
+// (copyMessage ishlatiladi, forward belgisisiz.)
+
+// Helper: column bo'yicha barcha satrlarni (pagination bilan) olib kelish
+const fetchAllColumn = async (table, column, pageSize = 1000) => {
+    let from = 0;
+    const rows = [];
+
+    while (true) {
+        const { data, error } = await supabase
+            .from(table)
+            .select(column)
+            .range(from, from + pageSize - 1);
+
+        if (error) {
+            console.error(`❌ Supabase fetch error (${table}.${column}):`, error.message);
+            break;
+        }
+        if (!data || data.length === 0) break;
+
+        rows.push(...data)
+
+        if (data.length < pageSize) break;
+        from += pageSize;
+    }
+
+    return rows;
+};
+
+const getBroadcastRecipients = async () => {
+    const ids = new Set();
+
+    // 1) users_mapping.telegram_id
+    try {
+        const maps = await fetchAllColumn('users_mapping', 'telegram_id');
+        for (const row of maps) {
+            const n = parseInt(String(row.telegram_id), 10);
+            if (Number.isFinite(n)) ids.add(n);
+        }
+    } catch (e) {
+        console.error('❌ users_mapping fetch failed:', e?.message || e);
+    }
+
+    // 2) reports.user_id (botga yozgan userlar ham kirsin)
+    try {
+        const reps = await fetchAllColumn('reports', 'user_id');
+        for (const row of reps) {
+            const n = parseInt(String(row.user_id), 10);
+            if (Number.isFinite(n)) ids.add(n);
+        }
+    } catch (e) {
+        console.error('❌ reports fetch failed:', e?.message || e);
+    }
+
+    return [...ids];
+};
+
+// Serverless timeoutga tushmaslik uchun limit (default 500). Kerak bo'lsa env bilan oshirasiz.
+const BROADCAST_MAX = (() => {
+    const n = parseInt(process.env.BROADCAST_MAX || '', 10);
+    return Number.isFinite(n) && n > 0 ? n : 500;
+})();
+
+// Telegram rate limit uchun delay (default 40ms ~ 25 msg/sec)
+const BROADCAST_DELAY_MS = (() => {
+    const n = parseInt(process.env.BROADCAST_DELAY_MS || '', 10);
+    return Number.isFinite(n) && n >= 0 ? n : 40;
+})();
+
+bot.command('message', async (ctx) => {
+    try {
+        if (ctx.from.id !== ADMIN_ID) return ctx.reply('Siz admin emassiz!');
+
+        const reply = ctx.message.reply_to_message;
+        const text = ctx.message.text.split(' ').slice(1).join(' ').trim();
+
+        if (!reply && !text) {
+            return ctx.reply(
+                "Xato! Format:\n/message <matn>\n\nYoki biror xabarga reply qilib /message yozing."
+            );
+        }
+
+        const recipients = await getBroadcastRecipients();
+        if (!recipients.length) {
+            return ctx.reply("Hozircha foydalanuvchilar topilmadi (users_mapping/reports bo'sh).\n/bind orqali xodimlarni bog'laganingizga ishonch hosil qiling.");
+        }
+
+        const targets = recipients.slice(0, BROADCAST_MAX);
+        if (recipients.length > BROADCAST_MAX) {
+            await ctx.reply(`⚠️ Juda ko'p user bor: ${recipients.length} ta. Hozir ${BROADCAST_MAX} ta user'ga yuboraman. (BROADCAST_MAX bilan oshirish mumkin)`);
+        }
+
+        const startMsg = await ctx.reply(`📣 Yuborilyapti... (${targets.length} ta foydalanuvchi)`);
+
+        let ok = 0;
+        let fail = 0;
+
+        for (const userId of targets) {
+            try {
+                if (reply) {
+                    await ctx.telegram.copyMessage(userId, ctx.chat.id, reply.message_id);
+                } else {
+                    await ctx.telegram.sendMessage(userId, text, { disable_web_page_preview: true });
+                }
+                ok += 1;
+            } catch (e) {
+                fail += 1;
+                const msg = e?.response?.description || e?.message || String(e);
+                console.warn(`⚠️ Broadcast send failed → ${userId}: ${msg}`);
+            }
+
+            if (BROADCAST_DELAY_MS) {
+                await delay(BROADCAST_DELAY_MS);
+            }
+        }
+
+        const doneText = `✅ Broadcast tugadi.\n\nYuborildi: ${ok}\nXato: ${fail}`;
+        try {
+            await ctx.telegram.editMessageText(ctx.chat.id, startMsg.message_id, undefined, doneText);
+        } catch {
+            await ctx.reply(doneText);
+        }
+
+    } catch (err) {
+        console.error('Broadcast command error:', err);
+        await ctx.reply("Xatolik: broadcast yuborishda muammo bo'ldi.");
+    }
+});
 
 bot.start(async (ctx) => {
     const welcome = `Assalomu alaykum, <b>${escapeHTML(ctx.from.first_name)}</b>!\n\n` +
