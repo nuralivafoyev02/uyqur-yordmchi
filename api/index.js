@@ -1,13 +1,25 @@
 const { Telegraf, Markup } = require('telegraf');
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ADMIN_ID = 7894854944;
 
+// WebApp URL (fix: avoid https://https://...)
+const WEB_APP_URL = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'https://uyqur-yordmchi.vercel.app';
+
+// Optional: ClickUp status mapping (some workspaces use custom status names)
+const CLICKUP_STATUS_PROCESS = process.env.CLICKUP_STATUS_PROCESS || 'in progress';
+const CLICKUP_STATUS_DONE = process.env.CLICKUP_STATUS_DONE || 'complete';
+
 // ClickUp API Helper
 const clickupRequest = async (endpoint, method = 'GET', body = null) => {
-    const res = await fetch(`https://api.clickup.com/api/v2/${endpoint}`, {
+    const url = `https://api.clickup.com/api/v2/${endpoint}`;
+
+    const res = await fetch(url, {
         method,
         headers: {
             'Authorization': process.env.CLICKUP_TOKEN,
@@ -15,7 +27,71 @@ const clickupRequest = async (endpoint, method = 'GET', body = null) => {
         },
         body: body ? JSON.stringify(body) : null
     });
-    return res.json();
+
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        data = text;
+    }
+
+    if (!res.ok) {
+        const msg = (data && typeof data === 'object' && (data.err || data.error || data.message))
+            ? (data.err || data.error || data.message)
+            : 'Unknown error';
+        const err = new Error(`ClickUp API error ${res.status}: ${msg}`);
+        err.status = res.status;
+        err.response = data;
+        throw err;
+    }
+
+    return data;
+};
+
+// --- Webhook signature helpers (optional, strict mode via env) ---
+const getHeader = (req, name) => {
+    const key = name.toLowerCase();
+    return req?.headers?.[key] || req?.headers?.[name] || null;
+};
+
+const verifyClickUpSignature = (req) => {
+    const secret = process.env.CLICKUP_WEBHOOK_SECRET;
+    const strict = process.env.CLICKUP_WEBHOOK_VERIFY === 'true';
+    if (!secret) return true; // backwards-compatible
+
+    const signature = getHeader(req, 'x-signature');
+    if (!signature) return !strict;
+
+    // Prefer raw body if your platform provides it
+    const raw = (req && (req.rawBody || req.bodyRaw))
+        ? (Buffer.isBuffer(req.rawBody || req.bodyRaw)
+            ? (req.rawBody || req.bodyRaw).toString('utf8')
+            : String(req.rawBody || req.bodyRaw))
+        : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+
+    const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+    if (signature.length !== expected.length) return !strict;
+
+    try {
+        const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+        // If strict mode is OFF, don't block production traffic on signature mismatches.
+        // Enable strict mode by setting CLICKUP_WEBHOOK_VERIFY=true.
+        if (!isValid && !strict) return true;
+        return isValid;
+    } catch {
+        return !strict;
+    }
+};
+
+const verifyTelegramSecret = (req) => {
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    const strict = process.env.TELEGRAM_WEBHOOK_VERIFY === 'true';
+    if (!secret) return true; // backwards-compatible
+
+    const token = getHeader(req, 'x-telegram-bot-api-secret-token');
+    if (!token) return !strict;
+    return token === secret;
 };
 
 const escapeHTML = (str) => {
@@ -31,23 +107,19 @@ async function handleClickUpWebhook(req) {
     const { event, task_id } = req.body;
 
     // Faqat task yaratilganda yoki update bo‘lganda
-    if (event !== 'taskCreated' && event !== 'taskUpdated') {
+    // (taskAssigneeUpdated ham qo'llab-quvvatlanadi, agar webhook shu event'ni yuborsa)
+    if (event !== 'taskCreated' && event !== 'taskUpdated' && event !== 'taskAssigneeUpdated') {
         return;
     }
-    // 🔒 ENG MUHIM QISM — DARHOL LOCK QILAMIZ
-    const { error: lockError } = await supabase
-        .from('clickup_notifications')
-        .insert([{ task_id }]);
-    // Agar oldin yozilgan bo‘lsa → duplicate
-    if (lockError) {
-        console.log(`⛔ Duplicate task (lock bor): ${task_id}`);
-        return;
-    }
-
-    // 🔄 Endi xotirjam ishlaymiz (duplicate YO‘Q)
+    // 🔄 Task data'ni olib kelamiz
     let task;
     for (let i = 0; i < 3; i++) {
-        task = await clickupRequest(`task/${task_id}`);
+        try {
+            task = await clickupRequest(`task/${task_id}`);
+        } catch (err) {
+            console.error(`❌ ClickUp task fetch error (${task_id}):`, err?.message || err);
+            return;
+        }
         if (task?.assignees?.length) break;
         await new Promise(r => setTimeout(r, 800));
     }
@@ -66,6 +138,19 @@ async function handleClickUpWebhook(req) {
 
         if (!userMap) continue;
 
+        // ✅ Per-assignee lock (task_id + assignee_id) — bu bug'ni tuzatadi
+        // Task keyinroq biriktirilsa ham, yangi assignee xabar oladi.
+        const lockKey = `${task_id}:${assignee.id}`;
+        const { error: lockError } = await supabase
+            .from('clickup_notifications')
+            .insert([{ task_id: lockKey }]);
+
+        // Agar oldin yuborilgan bo‘lsa → duplicate
+        if (lockError) {
+            console.log(`⛔ Duplicate notify (lock bor): ${lockKey}`);
+            continue;
+        }
+
         const text =
             `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
             `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
@@ -77,13 +162,16 @@ async function handleClickUpWebhook(req) {
             [Markup.button.callback("✅ Yakunlash", `cu_status_done_${task_id}`)]
         ]);
 
-        await bot.telegram.sendMessage(
-            userMap.telegram_id,
-            text,
-            { parse_mode: 'HTML', ...keyboard }
-        );
-
-        console.log(`✅ Task ${task_id} → TG ${userMap.telegram_id}`);
+        try {
+            await bot.telegram.sendMessage(
+                userMap.telegram_id,
+                text,
+                { parse_mode: 'HTML', ...keyboard }
+            );
+            console.log(`✅ Task ${task_id} → TG ${userMap.telegram_id}`);
+        } catch (err) {
+            console.error(`❌ Telegram send error (task ${task_id}):`, err?.message || err);
+        }
     }
 }
 
@@ -151,7 +239,7 @@ bot.command('send', async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("🚀 Guruhga yuborish", "confirm_send")],
-            [Markup.button.webApp("✍️ Tahrirlash (Pastdan chap burchakda <b>open</b> tugmasi)", `https://${process.env.VERCEL_URL || 'https://uyqur-yordmchi.vercel.app/'}`)]
+            [Markup.button.webApp("✍️ Tahrirlash (Pastdan chap burchakda open tugmasi)", WEB_APP_URL)]
         ]);
 
         await ctx.reply(reportText, { parse_mode: 'HTML', ...keyboard });
@@ -163,7 +251,7 @@ bot.command('send', async (ctx) => {
 // --- ACTIONS & TEXT ---
 bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
     const [_, action, taskId] = ctx.match;
-    const statusName = action === 'process' ? 'in progress' : 'complete';
+    const statusName = action === 'process' ? CLICKUP_STATUS_PROCESS : CLICKUP_STATUS_DONE;
 
     try {
         await clickupRequest(`task/${taskId}`, 'PUT', { status: statusName });
@@ -233,11 +321,22 @@ module.exports = async (req, res) => {
         try {
             // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
             if (req.body && req.body.webhook_id) {
+                // Optional signature verification (strict mode via env)
+                const ok = verifyClickUpSignature(req);
+                if (!ok) {
+                    console.warn('⚠️ ClickUp signature verification failed');
+                    return res.status(401).send('Invalid signature');
+                }
                 await handleClickUpWebhook(req);
                 return res.status(200).send('OK');
             }
 
             // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
+            const tgOk = verifyTelegramSecret(req);
+            if (!tgOk) {
+                console.warn('⚠️ Telegram secret token verification failed');
+                return res.status(401).send('Invalid telegram secret');
+            }
             await bot.handleUpdate(req.body);
             return res.status(200).send('OK');
 
