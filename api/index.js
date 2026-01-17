@@ -69,7 +69,7 @@ async function handleClickUpWebhook(req) {
         const text =
             `📌 <b>Yangi vazifa biriktirildi:</b>\n\n` +
             `<b>Nomi:</b> ${escapeHTML(task.name)}\n` +
-            `<b>Status:</b> ${task.status.statusName.toUpperCase()}\n\n` +
+            `<b>Status:</b> ${task.status.status.toUpperCase()}\n\n` +
             `<a href="${task.url}">ClickUp'da ochish</a>`;
 
         const keyboard = Markup.inlineKeyboard([
@@ -151,7 +151,7 @@ bot.command('send', async (ctx) => {
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("🚀 Guruhga yuborish", "confirm_send")],
-            [Markup.button.webApp("✍️ Tahrirlash (Pastdan chap burchakda <b>open</b> tugmasi)")]
+            [Markup.button.webApp("✍️ Tahrirlash (Pastdan chap burchakda <b>open</b> tugmasi)", `https://${process.env.VERCEL_URL || 'https://uyqur-yordmchi.vercel.app/'}`)]
         ]);
 
         await ctx.reply(reportText, { parse_mode: 'HTML', ...keyboard });
