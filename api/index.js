@@ -13,7 +13,7 @@ const WEB_APP_URL = process.env.VERCEL_URL
 
 // Optional: ClickUp status mapping (some workspaces use custom status names)
 const CLICKUP_STATUS_PROCESS = process.env.CLICKUP_STATUS_PROCESS || 'in progress';
-const CLICKUP_STATUS_DONE = process.env.CLICKUP_STATUS_DONE || 'complete';
+const CLICKUP_STATUS_DONE = process.env.CLICKUP_STATUS_DONE || 'closed';
 
 // ClickUp API Helper
 const clickupRequest = async (endpoint, method = 'GET', body = null) => {
