@@ -6,6 +6,20 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ADMIN_ID = 7894854944;
 
+// === /tasks va /report uchun sozlamalar ===
+// Mas'ul shaxslar (comma-separated): "789...,123...". Default: ADMIN_ID
+const TASK_PLANNERS = (process.env.TASK_PLANNERS || String(ADMIN_ID))
+    .split(',')
+    .map(s => parseInt(s.trim(), 10))
+    .filter(n => Number.isFinite(n));
+
+// Report qaysi Telegram ID'ga yuboriladi (rahbar). Default: ADMIN_ID (xavfsiz fallback)
+const BOSS_ID = (() => {
+    const v = process.env.BOSS_ID || process.env.MANAGER_ID;
+    const n = v ? parseInt(String(v), 10) : NaN;
+    return Number.isFinite(n) ? n : ADMIN_ID;
+})();
+
 // WebApp URL (fix: avoid https://https://...)
 const WEB_APP_URL = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
@@ -213,6 +227,8 @@ bot.start(async (ctx) => {
 bot.help(async (ctx) => {
     const helpText = `🛠 <b>Bot buyruqlari:</b>\n\n` +
         `/send - Saqlangan barcha ishlarni ko'rish va guruhga yuborish\n` +
+        `/tasks - Ertangi vazifalarni tayyorlash (mas'ul shaxs)\n` +
+        `/report - Ertangi vazifalarni rahbarga yuborish (tasdiqlash bilan)\n\n` +
         `✍️ <b>Matn yozing</b> - Ishlaringizni botga oddiy xabar sifatida yuborsangiz, ular hisobotga qo'shiladi.\n` +
         `📌 <b>ClickUp</b> - Sizga biriktirilgan tasklar avtomatik keladi.\n\n` +
         `<i>Eslatma: ClickUp'da taskni "Yakunlash" bossangiz, u avtomatik hisobotingizga qo'shiladi.</i>`;
@@ -296,6 +312,329 @@ bot.action('confirm_send', async (ctx) => {
     }
 });
 
+// ====== /tasks & /report helperlar ======
+const isPlanner = (telegramId) => {
+    return TASK_PLANNERS.includes(Number(telegramId));
+};
+
+const getTashkentISODate = (offsetDays = 0) => {
+    const dt = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+    // en-CA => YYYY-MM-DD
+    return dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
+};
+
+const formatUzDate = (isoDate) => {
+    // isoDate: YYYY-MM-DD
+    try {
+        const [y, m, d] = isoDate.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return dt.toLocaleDateString('uz-UZ', { timeZone: 'Asia/Tashkent' });
+    } catch {
+        return isoDate;
+    }
+};
+
+const sendEmployeePicker = async (ctx, title = "👥 Xodimni tanlang") => {
+    const { data: users, error } = await supabase
+        .from('users_mapping')
+        .select('telegram_id, full_name')
+        .order('full_name', { ascending: true });
+
+    if (error || !users?.length) {
+        return ctx.reply("❌ Xodimlar ro'yxati topilmadi. Avval /bind bilan xodimlarni bog'lab chiqing.");
+    }
+
+    // 2 tadan qilib tugma chiqaramiz
+    const rows = [];
+    for (let i = 0; i < users.length; i += 2) {
+        const row = [];
+        row.push(Markup.button.callback(users[i].full_name, `plan_select_${users[i].telegram_id}`));
+        if (users[i + 1]) {
+            row.push(Markup.button.callback(users[i + 1].full_name, `plan_select_${users[i + 1].telegram_id}`));
+        }
+        rows.push(row);
+    }
+    rows.push([Markup.button.callback("❌ Rejimdan chiqish", "plan_exit")]);
+
+    return ctx.reply(title, Markup.inlineKeyboard(rows));
+};
+
+// ====== /tasks komandasi ======
+// /tasks -> xodim tanlash
+// /tasks list -> ertangi draft tasklarni ko'rish
+// /tasks stop -> rejimdan chiqish
+bot.command('tasks', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.reply("Bu buyruq faqat mas'ul shaxs uchun.");
+
+    const args = ctx.message.text.split(' ').slice(1);
+    const sub = (args[0] || '').toLowerCase();
+
+    // stop
+    if (sub === 'stop') {
+        await supabase.from('planner_state').delete().eq('creator_id', ctx.from.id);
+        return ctx.reply("✅ /tasks rejimi o'chirildi.");
+    }
+
+    // list
+    if (sub === 'list') {
+        const planDate = getTashkentISODate(1);
+        const { data: items } = await supabase
+            .from('task_plans')
+            .select('id, assignee_tg_id, task_text, created_at')
+            .eq('creator_id', ctx.from.id)
+            .eq('plan_date', planDate)
+            .eq('status', 'draft')
+            .order('created_at', { ascending: true });
+
+        if (!items?.length) {
+            return ctx.reply("📭 Ertangi vazifalar ro'yxati hozircha bo'sh.");
+        }
+
+        // ismlar mapping
+        const ids = [...new Set(items.map(i => i.assignee_tg_id))];
+        const { data: users } = await supabase
+            .from('users_mapping')
+            .select('telegram_id, full_name')
+            .in('telegram_id', ids);
+
+        const nameMap = new Map((users || []).map(u => [u.telegram_id, u.full_name]));
+
+        let text = `📌 <b>Ertangi draft vazifalar</b> (${formatUzDate(planDate)})\n\n`;
+        const grouped = {};
+        for (const t of items) {
+            const key = t.assignee_tg_id;
+            grouped[key] = grouped[key] || [];
+            grouped[key].push(t.task_text);
+        }
+        let idx = 1;
+        for (const [assigneeId, tasks] of Object.entries(grouped)) {
+            const name = escapeHTML(nameMap.get(Number(assigneeId)) || `ID ${assigneeId}`);
+            text += `<b>${idx}. ${name}</b> vazifalar:\n`;
+            tasks.forEach((tt) => {
+                text += `• ${escapeHTML(tt)}\n`;
+            });
+            text += `\n`;
+            idx++;
+        }
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback("👥 Yana task qo'shish", "plan_change")],
+            [Markup.button.callback("📝 /report (preview)", "report_preview")]
+        ]);
+
+        return ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+    }
+
+    // default: picker
+    // planner_state yaratib qo'yamiz
+    const planDate = getTashkentISODate(1);
+    await supabase
+        .from('planner_state')
+        .upsert({ creator_id: ctx.from.id, assignee_tg_id: null, plan_date: planDate, updated_at: new Date().toISOString() });
+
+    return sendEmployeePicker(ctx, `🗓 <b>Ertangi vazifalar</b> (${formatUzDate(planDate)})\n\n👥 Xodimni tanlang:`);
+});
+
+// xodim tanlash
+bot.action(/plan_select_(\d+)/, async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+
+    const assigneeId = parseInt(ctx.match[1], 10);
+    const planDate = getTashkentISODate(1);
+
+    await supabase
+        .from('planner_state')
+        .upsert({ creator_id: ctx.from.id, assignee_tg_id: assigneeId, plan_date: planDate, updated_at: new Date().toISOString() });
+
+    await ctx.answerCbQuery("✅ Tanlandi");
+
+    const { data: user } = await supabase
+        .from('users_mapping')
+        .select('full_name')
+        .eq('telegram_id', assigneeId)
+        .single();
+
+    const name = escapeHTML(user?.full_name || String(assigneeId));
+
+    return ctx.editMessageText(
+        `✅ <b>${name}</b> tanlandi.\n\nEndi vazifa matnini yozing (har bir xabar = 1 ta task).\n\n` +
+        `<i>Rejimdan chiqish:</i> <b>/tasks stop</b>`,
+        { parse_mode: 'HTML' }
+    );
+});
+
+// rejimdan chiqish
+bot.action('plan_exit', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+    await supabase.from('planner_state').delete().eq('creator_id', ctx.from.id);
+    await ctx.answerCbQuery("✅ O'chirildi");
+    return ctx.editMessageText("✅ /tasks rejimi yopildi.");
+});
+
+// xodimni almashtirish (picker)
+bot.action('plan_change', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+    await ctx.answerCbQuery();
+    return sendEmployeePicker(ctx, "👥 Xodimni tanlang (task qo'shishda davom etamiz):");
+});
+
+// /report preview tugmasi
+bot.action('report_preview', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+    await ctx.answerCbQuery();
+    // /report komandasi bilan bir xil ishlaydi
+    return bot.telegram.sendMessage(ctx.from.id, "📝 /report buyrug'ini yuboring: /report");
+});
+
+// ====== /report komandasi ======
+// /report -> preview (faqat yaratgan odam ko'radi) + Tasdiqlash/Bekor qilish
+bot.command('report', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.reply("Bu buyruq faqat mas'ul shaxs uchun.");
+
+    const planDate = getTashkentISODate(1);
+
+    const { data: tasks, error } = await supabase
+        .from('task_plans')
+        .select('id, assignee_tg_id, task_text, created_at')
+        .eq('creator_id', ctx.from.id)
+        .eq('plan_date', planDate)
+        .eq('status', 'draft')
+        .order('created_at', { ascending: true });
+
+    if (error || !tasks?.length) {
+        return ctx.reply("📭 Ertangi vazifalar yo'q. Avval /tasks bilan vazifalarni kiriting.");
+    }
+
+    const assigneeIds = [...new Set(tasks.map(t => t.assignee_tg_id))];
+
+    const { data: users } = await supabase
+        .from('users_mapping')
+        .select('telegram_id, full_name')
+        .in('telegram_id', assigneeIds);
+
+    const nameMap = new Map((users || []).map(u => [u.telegram_id, u.full_name]));
+
+    // format
+    let message = `📌 <b>Ertangi vazifalar</b> (${formatUzDate(planDate)})\n\n`;
+
+    const grouped = {};
+    for (const t of tasks) {
+        const key = t.assignee_tg_id;
+        grouped[key] = grouped[key] || [];
+        grouped[key].push(t.task_text);
+    }
+
+    let i = 1;
+    for (const [assigneeId, items] of Object.entries(grouped)) {
+        const name = escapeHTML(nameMap.get(Number(assigneeId)) || `ID ${assigneeId}`);
+        message += `<b>${i}. ${name}</b> vazifalar:\n`;
+        for (const it of items) {
+            message += `• ${escapeHTML(it)}\n`;
+        }
+        message += `\n`;
+        i++;
+    }
+
+    // draft saqlab qo'yamiz (confirm bosilganda shu draft yuboriladi)
+    const { data: draft, error: draftErr } = await supabase
+        .from('task_reports')
+        .insert([{
+            creator_id: ctx.from.id,
+            plan_date: planDate,
+            message,
+            task_ids: tasks.map(t => t.id),
+            status: 'draft'
+        }])
+        .select('id')
+        .single();
+
+    if (draftErr || !draft?.id) {
+        console.error('task_reports insert error:', draftErr);
+        return ctx.reply("❌ Report draft yaratishda xatolik bo'ldi.");
+    }
+
+    const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback("✅ Tasdiqlash va yuborish", `report_confirm_${draft.id}`)],
+        [Markup.button.callback("❌ Bekor qilish", `report_cancel_${draft.id}`)]
+    ]);
+
+    return ctx.reply(
+        `🧾 <b>Rahbarga yuborishdan oldin tekshirib oling:</b>\n\n${message}`,
+        { parse_mode: 'HTML', ...keyboard }
+    );
+});
+
+bot.action(/report_confirm_(.+)/, async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+
+    const reportId = ctx.match[1];
+
+    const { data: draft } = await supabase
+        .from('task_reports')
+        .select('id, creator_id, plan_date, message, task_ids, status')
+        .eq('id', reportId)
+        .single();
+
+    if (!draft || draft.creator_id !== ctx.from.id) {
+        return ctx.answerCbQuery("Draft topilmadi");
+    }
+
+    if (draft.status !== 'draft') {
+        return ctx.answerCbQuery("Bu report allaqachon yakunlangan");
+    }
+
+    try {
+        await ctx.telegram.sendMessage(BOSS_ID, draft.message, { parse_mode: 'HTML' });
+
+        // tasklarni sent qilamiz
+        if (Array.isArray(draft.task_ids) && draft.task_ids.length) {
+            await supabase
+                .from('task_plans')
+                .update({ status: 'sent' })
+                .in('id', draft.task_ids);
+        }
+
+        await supabase
+            .from('task_reports')
+            .update({ status: 'sent' })
+            .eq('id', reportId);
+
+        await ctx.answerCbQuery("✅ Yuborildi");
+        return ctx.editMessageText("✅ Report rahbarga yuborildi!", { parse_mode: 'HTML' });
+    } catch (err) {
+        console.error('report_confirm error:', err);
+        return ctx.answerCbQuery("Xatolik: yuborib bo'lmadi");
+    }
+});
+
+bot.action(/report_cancel_(.+)/, async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+
+    const reportId = ctx.match[1];
+
+    const { data: draft } = await supabase
+        .from('task_reports')
+        .select('id, creator_id, status')
+        .eq('id', reportId)
+        .single();
+
+    if (!draft || draft.creator_id !== ctx.from.id) {
+        return ctx.answerCbQuery("Draft topilmadi");
+    }
+
+    if (draft.status !== 'draft') {
+        return ctx.answerCbQuery("Bu report allaqachon yakunlangan");
+    }
+
+    await supabase
+        .from('task_reports')
+        .update({ status: 'cancelled' })
+        .eq('id', reportId);
+
+    await ctx.answerCbQuery("❌ Bekor qilindi");
+    return ctx.editMessageText("❌ Report bekor qilindi. (Vazifalar draft holatda qoldi)");
+});
+
 bot.on('text', async (ctx) => {
     // 1. Agar xabar buyruq bo'lsa (/) o'tkazib yuborish
     if (ctx.message.text.startsWith('/')) return;
@@ -303,16 +642,71 @@ bot.on('text', async (ctx) => {
     // 2. FAQAT shaxsiy xabarlarni saqlash (Guruh xabarlarini e'tiborsiz qoldirish)
     if (ctx.chat.type !== 'private') return;
 
+    // 3) Agar mas'ul shaxs /tasks rejimida bo'lsa - task_plans ga yozamiz
+    if (isPlanner(ctx.from.id)) {
+        const { data: state } = await supabase
+            .from('planner_state')
+            .select('assignee_tg_id, plan_date')
+            .eq('creator_id', ctx.from.id)
+            .single();
+
+        if (state?.assignee_tg_id) {
+            const content = (ctx.message.text || '').trim();
+            if (!content) return;
+
+            const planDate = state.plan_date || getTashkentISODate(1);
+
+            const { error } = await supabase
+                .from('task_plans')
+                .insert([{
+                    creator_id: ctx.from.id,
+                    assignee_tg_id: state.assignee_tg_id,
+                    task_text: content,
+                    plan_date: planDate,
+                    status: 'draft'
+                }]);
+
+            if (error) {
+                console.error('task_plans insert error:', error);
+                return ctx.reply("❌ Task saqlanmadi (DB xatolik)");
+            }
+
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback("👥 Xodimni almashtirish", "plan_change")],
+                [Markup.button.callback("📋 Ro'yxat", "plan_show_list")],
+                [Markup.button.callback("✅ Tayyor /report", "plan_report_hint")]
+            ]);
+
+            return ctx.reply(
+                `✅ Task qo'shildi (${formatUzDate(planDate)}):\n<b>${escapeHTML(content)}</b>`,
+                { parse_mode: 'HTML', ...keyboard }
+            );
+        }
+    }
+
+    // 4) Default: oddiy hisobot (reports)
     try {
-        await supabase.from('reports').insert([{ 
-            user_id: ctx.from.id, 
-            content: ctx.message.text, 
-            status: 'pending' 
+        await supabase.from('reports').insert([{
+            user_id: ctx.from.id,
+            content: ctx.message.text,
+            status: 'pending'
         }]);
         await ctx.reply("✅ Hisobotga qo'shildi.", { reply_to_message_id: ctx.message.message_id });
     } catch (err) {
         console.error("Text save error:", err);
     }
+});
+
+bot.action('plan_show_list', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+    await ctx.answerCbQuery();
+    return bot.telegram.sendMessage(ctx.from.id, "📋 Ko'rish uchun yozing: /tasks list");
+});
+
+bot.action('plan_report_hint', async (ctx) => {
+    if (!isPlanner(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo'q");
+    await ctx.answerCbQuery();
+    return bot.telegram.sendMessage(ctx.from.id, "✅ Preview va yuborish uchun: /report");
 });
 
 // --- SERVER LOGIC ---
