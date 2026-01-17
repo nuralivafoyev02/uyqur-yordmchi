@@ -1,253 +1,1350 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Uyqur Yordamchi</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-    <style>
-        :root {
-            --tg-bg: var(--tg-theme-bg-color, #ffffff);
-            --tg-text: var(--tg-theme-text-color, #222222);
-            --tg-hint: var(--tg-theme-hint-color, #999999);
-            --tg-link: var(--tg-theme-link-color, #0088cc);
-            --tg-button: var(--tg-theme-button-color, #0088cc);
-            --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
-            --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #f4f4f5);
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Uyqur Yordamchi</title>
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--tg-bg);
-            color: var(--tg-text);
-            margin: 0;
-            padding: 16px;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
+  <style>
+    :root {
+      --tg-bg: var(--tg-theme-bg-color, #0b0f14);
+      --tg-text: var(--tg-theme-text-color, #e9eef7);
+      --tg-hint: var(--tg-theme-hint-color, #8b94a7);
+      --tg-link: var(--tg-theme-link-color, #4ea4ff);
+      --tg-button: var(--tg-theme-button-color, #4ea4ff);
+      --tg-button-text: var(--tg-theme-button-text-color, #0b0f14);
+      --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #101722);
 
-        .header h2 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 700;
-        }
+      --card: rgba(255, 255, 255, 0.06);
+      --card-2: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.10);
+      --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
 
-        .count-badge {
-            background: var(--tg-link);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-        }
+      --ok: #34c759;
+      --warn: #ffcc00;
+      --bad: #ff3b30;
 
-        /* Skeleton Animation */
-        .skeleton {
-            background: linear-gradient(90deg, var(--tg-secondary-bg) 25%, var(--tg-bg) 50%, var(--tg-secondary-bg) 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite ease-in-out;
-            border-radius: 12px;
-            height: 100px;
-            margin-bottom: 12px;
-        }
+      --pad: 16px;
+    }
 
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
+    * { box-sizing: border-box; }
 
-        #report-list { display: flex; flex-direction: column; gap: 14px; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(1200px 900px at 10% -10%, rgba(78,164,255,0.22), transparent 55%),
+                  radial-gradient(900px 800px at 100% 10%, rgba(52,199,89,0.14), transparent 55%),
+                  radial-gradient(900px 800px at 20% 110%, rgba(255,204,0,0.12), transparent 60%),
+                  var(--tg-bg);
+      color: var(--tg-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
 
-        .report-card {
-            background: var(--tg-secondary-bg);
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            border: 1px solid rgba(0,0,0,0.05);
-            transition: all 0.2s ease;
-        }
+    .app {
+      min-height: 100vh;
+      padding: var(--pad);
+      padding-bottom: 86px;
+    }
 
-        .report-card:active { transform: scale(0.98); }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 14px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--card-2), var(--card));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      position: sticky;
+      top: 10px;
+      z-index: 20;
+    }
 
-        .report-textarea {
-            width: 100%;
-            border: none;
-            background: transparent;
-            color: var(--tg-text);
-            font-size: 16px;
-            line-height: 1.5;
-            resize: none;
-            outline: none;
-            padding: 0;
-            margin-bottom: 12px;
-        }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
 
-        .card-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-top: 1px solid rgba(0,0,0,0.05);
-            padding-top: 10px;
-        }
+    .brand .title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-        .btn-icon {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
+    .brand .subtitle {
+      font-size: 12px;
+      color: var(--tg-hint);
+      margin-top: 3px;
+    }
 
-        .btn-delete { color: #ff3b30; }
-        .btn-save { 
-            background: var(--tg-button); 
-            color: var(--tg-button-text);
-            border-radius: 8px;
-            padding: 6px 14px;
-            font-size: 14px;
-            font-weight: 600;
-        }
+    .iconBtn {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--tg-text);
+      cursor: pointer;
+      transition: transform 0.18s ease;
+    }
 
-        .empty-state {
-            text-align: center;
-            margin-top: 60px;
-            color: var(--tg-hint);
-        }
+    .iconBtn:active { transform: scale(0.97); }
 
-        .empty-icon { font-size: 48px; margin-bottom: 10px; }
-    </style>
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .tab {
+      border-radius: 999px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--tg-text);
+      font-weight: 700;
+      font-size: 13px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .tab.active {
+      background: linear-gradient(180deg, rgba(78,164,255,0.35), rgba(78,164,255,0.12));
+      border-color: rgba(78,164,255,0.55);
+      box-shadow: 0 10px 20px rgba(78,164,255,0.12);
+    }
+
+    .tab:active { transform: scale(0.98); }
+
+    .view {
+      margin-top: 14px;
+    }
+
+    .section {
+      background: linear-gradient(180deg, var(--card-2), var(--card));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .section + .section { margin-top: 14px; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .pillRow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .pill {
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--tg-text);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s ease;
+    }
+
+    .pill.active {
+      border-color: rgba(78,164,255,0.55);
+      background: rgba(78,164,255,0.16);
+    }
+
+    .pill:active { transform: scale(0.98); }
+
+    .badge {
+      font-weight: 900;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--tg-text);
+    }
+
+    .muted { color: var(--tg-hint); }
+
+    .skeleton {
+      height: 98px;
+      border-radius: 16px;
+      margin-top: 10px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite linear;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .card {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.12);
+      padding: 12px;
+      transition: transform 0.16s ease;
+    }
+
+    .card:active { transform: scale(0.985); }
+
+    .textarea {
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      color: var(--tg-text);
+      font-size: 15px;
+      line-height: 1.5;
+      padding: 0;
+    }
+
+    .cardFooter {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .btn {
+      border: none;
+      cursor: pointer;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 900;
+      font-size: 13px;
+      transition: transform 0.14s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btnPrimary {
+      background: var(--tg-button);
+      color: var(--tg-button-text);
+    }
+
+    .btnGhost {
+      background: rgba(255,255,255,0.06);
+      color: var(--tg-text);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .btnDanger {
+      background: rgba(255,59,48,0.16);
+      color: #ffd6d3;
+      border: 1px solid rgba(255,59,48,0.25);
+    }
+
+    .hintLine {
+      font-size: 12px;
+      color: var(--tg-hint);
+      margin-top: 10px;
+      line-height: 1.35;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.14);
+      padding: 12px;
+      color: var(--tg-text);
+      outline: none;
+      font-size: 14px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mini {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--tg-hint);
+      margin-bottom: 6px;
+    }
+
+    .progressWrap {
+      margin-top: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .progress {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(78,164,255,0.95), rgba(52,199,89,0.8));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .kpiGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .kpi {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.12);
+      padding: 10px;
+    }
+
+    .kpi .num {
+      font-size: 18px;
+      font-weight: 950;
+    }
+
+    .kpi .lbl {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--tg-hint);
+      font-weight: 800;
+    }
+
+    .bottomBar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 10px 14px;
+      background: rgba(10,14,20,0.75);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      gap: 10px;
+      z-index: 50;
+    }
+
+    .bottomBar .cta {
+      flex: 1;
+      border-radius: 16px;
+      padding: 14px 14px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.06);
+      color: var(--tg-text);
+      font-weight: 950;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .bottomBar .cta.primary {
+      background: linear-gradient(180deg, rgba(78,164,255,0.92), rgba(78,164,255,0.65));
+      color: #071019;
+      border-color: rgba(78,164,255,0.55);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 26px 10px;
+      color: var(--tg-hint);
+      line-height: 1.35;
+    }
+
+    .tiny {
+      font-size: 11px;
+      color: var(--tg-hint);
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
+    .hidden { display: none !important; }
+  </style>
 </head>
+
 <body>
+  <div class="app">
 
-    <div class="header">
-        <h2>Mening ishlarim</h2>
-        <span id="report-count" class="count-badge">0</span>
-    </div>
-    
-    <div id="report-list">
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
-        <div class="skeleton"></div>
+    <div class="topbar">
+      <div class="brand">
+        <div class="title">⚡ Uyqur Yordamchi <span id="roleBadge" class="badge hidden">ROLE</span></div>
+        <div id="subtitle" class="subtitle">Live tasks va rejalar</div>
+      </div>
+      <button id="refreshBtn" class="iconBtn" aria-label="Refresh">↻</button>
     </div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.ready();
-        
-        // Haptic Feedback uchun
-        const haptic = tg.HapticFeedback;
+    <div class="tabs">
+      <div class="tab active" data-tab="work">📝 Ishlar</div>
+      <div class="tab" data-tab="planner">🗓️ Planner</div>
+      <div class="tab" data-tab="analytics">📊 Rahbar</div>
+    </div>
 
-        const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <div class="view">
 
-        const userId = tg.initDataUnsafe?.user?.id;
-        const listContainer = document.getElementById('report-list');
-        const countBadge = document.getElementById('report-count');
+      <!-- WORK VIEW -->
+      <div id="view-work" class="section">
+        <div class="row">
+          <div>
+            <div style="font-weight:950; font-size:15px;">Mening ishlarim</div>
+            <div class="tiny">Pending ishlarni tahrirlash va yuborishdan oldin tayyorlash</div>
+          </div>
+          <span id="workCount" class="badge">0</span>
+        </div>
 
-        async function loadReports() {
-            if (!userId) {
-                listContainer.innerHTML = '<div class="empty-state">Telegram maʼlumotlari xatosi.</div>';
-                return;
-            }
+        <div class="pillRow" id="workFilters">
+          <div class="pill active" data-filter="pending">🟡 Pending</div>
+          <div class="pill" data-filter="sent">🟢 Sent</div>
+          <div class="pill" data-filter="all">📚 All</div>
+        </div>
 
-            const { data, error } = await supabaseClient
-                .from('reports')
-                .select('*')
-                .eq('user_id', userId)
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false });
+        <div id="workList" class="cards">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+      </div>
 
-            if (error) {
-                tg.showAlert("Xatolik: " + error.message);
-                return;
-            }
+      <!-- PLANNER VIEW -->
+      <div id="view-planner" class="section hidden">
+        <div class="row">
+          <div>
+            <div style="font-weight:950; font-size:15px;">Task Planner</div>
+            <div class="tiny">Kunlik va haftalik rejani oldindan saqlang, keyin istalgan payt yuboring</div>
+          </div>
+          <span id="planCount" class="badge">0</span>
+        </div>
 
-            renderReports(data);
+        <div class="split">
+          <div>
+            <div class="mini">Sana</div>
+            <input id="planDate" class="input" type="date" />
+          </div>
+          <div>
+            <div class="mini">Reja turi</div>
+            <div class="pillRow" style="margin-top:0;">
+              <div id="modeDay" class="pill active" data-mode="day">1 kun</div>
+              <div id="modeWeek" class="pill" data-mode="week">1 hafta</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="mini">Xodim</div>
+          <div id="employeeChips" class="pillRow">
+            <div class="pill">⏳ Yuklanmoqda...</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="mini">Task matni</div>
+          <textarea id="planText" class="input" rows="3" placeholder="Masalan: 🔥 Nurali bilan sverka, ⚡ Inventar to'lovlar, 📌 ClickUp tasklar..."></textarea>
+          <div class="row" style="margin-top:10px;">
+            <button id="addPlanBtn" class="btn btnPrimary">➕ Qo‘shish</button>
+            <button id="clearPlanBtn" class="btn btnGhost">🧹 Tozalash</button>
+          </div>
+        </div>
+
+        <div class="hintLine">
+          • Planner tasklari alohida jadvalga saqlanadi. <br />
+          • <b>Yuborish</b> tugmasi bosilganda bot xodimlarga yetkazadi.
+        </div>
+
+        <div id="planList" class="cards" style="margin-top:12px;">
+          <div class="empty">Reja yo‘q. Sana va xodim tanlab, task qo‘shing ✨</div>
+        </div>
+
+      </div>
+
+      <!-- ANALYTICS VIEW -->
+      <div id="view-analytics" class="section hidden">
+        <div class="row">
+          <div>
+            <div style="font-weight:950; font-size:15px;">Rahbar panel</div>
+            <div class="tiny">Reja vs natija: har bir xodim bo‘yicha ko‘rsatkichlar</div>
+          </div>
+          <span id="teamCount" class="badge">0</span>
+        </div>
+
+        <div class="pillRow" id="rangeFilters" style="margin-top:12px;">
+          <div class="pill active" data-range="today">📍 Bugun</div>
+          <div class="pill" data-range="week">🗓️ Hafta</div>
+          <div class="pill" data-range="month">📅 Oy</div>
+        </div>
+
+        <div id="analyticsList" class="cards" style="margin-top:12px;">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+
+        <div class="hintLine">
+          Reja: <b>task_plans</b> jadvalidan. Natija: <b>reports</b> jadvalidan (sent).
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- bottom action bar -->
+  <div class="bottomBar">
+    <div id="primaryCta" class="cta primary">🚀 Yuborish</div>
+    <div id="secondaryCta" class="cta">⚙️ Yangilash</div>
+  </div>
+
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.ready();
+    const haptic = tg.HapticFeedback;
+
+    // --- SUPABASE ---
+    const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const userId = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null;
+
+    // --- UI refs ---
+    const subtitleEl = document.getElementById('subtitle');
+    const roleBadge = document.getElementById('roleBadge');
+
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    const views = {
+      work: document.getElementById('view-work'),
+      planner: document.getElementById('view-planner'),
+      analytics: document.getElementById('view-analytics')
+    };
+
+    const refreshBtn = document.getElementById('refreshBtn');
+    const primaryCta = document.getElementById('primaryCta');
+    const secondaryCta = document.getElementById('secondaryCta');
+
+    // Work
+    const workCount = document.getElementById('workCount');
+    const workList = document.getElementById('workList');
+    const workFilters = document.getElementById('workFilters');
+
+    // Planner
+    const planCount = document.getElementById('planCount');
+    const planDate = document.getElementById('planDate');
+    const planText = document.getElementById('planText');
+    const addPlanBtn = document.getElementById('addPlanBtn');
+    const clearPlanBtn = document.getElementById('clearPlanBtn');
+    const employeeChips = document.getElementById('employeeChips');
+    const planList = document.getElementById('planList');
+
+    // Analytics
+    const teamCount = document.getElementById('teamCount');
+    const analyticsList = document.getElementById('analyticsList');
+    const rangeFilters = document.getElementById('rangeFilters');
+
+    // --- state ---
+    const state = {
+      tab: 'work',
+      workFilter: 'pending',
+      planMode: 'day',
+      selectedEmployeeId: null,
+      employees: [],
+      role: 'user',
+      range: 'today',
+      cache: {
+        plans: [],
+        reports: []
+      }
+    };
+
+    function todayISO() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function formatNiceDate(iso) {
+      try {
+        const d = new Date(iso + 'T00:00:00');
+        return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' });
+      } catch {
+        return iso;
+      }
+    }
+
+    function setSubtitle(text) {
+      subtitleEl.textContent = text;
+    }
+
+    function showRole(role) {
+      roleBadge.classList.remove('hidden');
+      roleBadge.textContent = role.toUpperCase();
+      if (role === 'boss') roleBadge.style.borderColor = 'rgba(255,204,0,0.35)';
+      if (role === 'planner') roleBadge.style.borderColor = 'rgba(78,164,255,0.35)';
+    }
+
+    function setActiveTab(tabKey) {
+      state.tab = tabKey;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabKey));
+      Object.keys(views).forEach(k => {
+        if (k === tabKey) views[k].classList.remove('hidden');
+        else views[k].classList.add('hidden');
+      });
+
+      if (tabKey === 'work') {
+        setSubtitle('Pending ishlarni tartibga keltirish');
+        primaryCta.textContent = '🚀 Yuborish';
+      }
+      if (tabKey === 'planner') {
+        setSubtitle('Reja tuzish va bir tugma bilan yetkazish');
+        primaryCta.textContent = '📤 Rejani yuborish';
+      }
+      if (tabKey === 'analytics') {
+        setSubtitle('Reja vs natija (team)');
+        primaryCta.textContent = '📊 Yangilash';
+      }
+    }
+
+    function autoGrowTextarea(el) {
+      if (!el) return;
+      el.style.height = '';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
+    // --- data: roles ---
+    async function loadRole() {
+      // app_roles jadvali bo'lsa: telegram_id, role (boss|planner|user)
+      // bo'lmasa: oddiy user bo'lib qoladi.
+      try {
+        const { data } = await supabaseClient
+          .from('app_roles')
+          .select('role')
+          .eq('telegram_id', userId)
+          .maybeSingle();
+
+        const role = data && data.role ? String(data.role) : 'user';
+        state.role = role;
+        if (role !== 'user') showRole(role);
+
+        // Rahbar bo'lmasa ham tab ko'rinadi, lekin ichini bloklaymiz
+      } catch {
+        state.role = 'user';
+      }
+    }
+
+    // --- data: employees ---
+    async function loadEmployees() {
+      const { data, error } = await supabaseClient
+        .from('users_mapping')
+        .select('telegram_id, full_name')
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        employeeChips.innerHTML = '<div class="empty">Xodimlar ro\'yxati yuklanmadi</div>';
+        return;
+      }
+
+      state.employees = (data || []).map(x => ({
+        id: Number(x.telegram_id),
+        name: x.full_name || String(x.telegram_id)
+      }));
+
+      if (!state.selectedEmployeeId && state.employees.length) {
+        state.selectedEmployeeId = state.employees[0].id;
+      }
+
+      renderEmployees();
+    }
+
+    function renderEmployees() {
+      if (!state.employees.length) {
+        employeeChips.innerHTML = '<div class="empty">Xodim yo\'q. Avval /bind orqali bog\'lang</div>';
+        return;
+      }
+
+      employeeChips.innerHTML = '';
+      state.employees.forEach(emp => {
+        const chip = document.createElement('div');
+        chip.className = 'pill' + (emp.id === state.selectedEmployeeId ? ' active' : '');
+        chip.textContent = emp.name;
+        chip.onclick = () => {
+          haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+          state.selectedEmployeeId = emp.id;
+          renderEmployees();
+          loadPlans();
+        };
+        employeeChips.appendChild(chip);
+      });
+    }
+
+    // --- WORK (reports) ---
+    async function loadWork() {
+      if (!userId) {
+        workList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
+        return;
+      }
+
+      workList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+
+      let q = supabaseClient
+        .from('reports')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (state.workFilter === 'pending') q = q.eq('status', 'pending');
+      if (state.workFilter === 'sent') q = q.eq('status', 'sent');
+
+      const { data, error } = await q;
+
+      if (error) {
+        tg.showAlert('Xatolik: ' + error.message);
+        return;
+      }
+
+      renderWork(data || []);
+    }
+
+    function renderWork(items) {
+      workCount.textContent = String(items.length);
+
+      if (!items.length) {
+        workList.innerHTML = `
+          <div class="empty">
+            <div style="font-size:40px;">🪐</div>
+            Hozircha ma'lumot yo‘q.<br />Botga yozib ko‘ring.
+          </div>
+        `;
+        return;
+      }
+
+      workList.innerHTML = '';
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        card.innerHTML = `
+          <textarea class="textarea" id="work-${item.id}" rows="1">${escapeHtml(item.content || '')}</textarea>
+          <div class="cardFooter">
+            <button class="btn btnDanger" data-del="${item.id}">🗑️ O‘chirish</button>
+            <button class="btn btnPrimary" data-save="${item.id}">💾 Saqlash</button>
+          </div>
+        `;
+
+        workList.appendChild(card);
+        const ta = document.getElementById(`work-${item.id}`);
+        autoGrowTextarea(ta);
+        ta.addEventListener('input', () => autoGrowTextarea(ta));
+      });
+
+      workList.querySelectorAll('[data-save]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-save');
+          await updateReport(id);
+        });
+      });
+
+      workList.querySelectorAll('[data-del]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-del');
+          await deleteReport(id);
+        });
+      });
+    }
+
+    async function updateReport(id) {
+      const el = document.getElementById(`work-${id}`);
+      if (!el) return;
+      const content = el.value;
+
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+
+      const { error } = await supabaseClient
+        .from('reports')
+        .update({ content })
+        .eq('id', id);
+
+      if (error) {
+        tg.showAlert('Saqlanmadi: ' + error.message);
+        return;
+      }
+
+      haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
+      tg.showPopup({ title: '✅ Saqlandi', message: 'O‘zgarishlar saqlandi', buttons: [{ type: 'ok' }] });
+    }
+
+    async function deleteReport(id) {
+      haptic && haptic.impactOccurred && haptic.impactOccurred('medium');
+
+      tg.showConfirm("Ushbu ishni o'chirmoqchimisiz?", async ok => {
+        if (!ok) return;
+
+        const { error } = await supabaseClient
+          .from('reports')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          tg.showAlert('O‘chirilmadi: ' + error.message);
+          return;
         }
 
-        function renderReports(reports) {
-            listContainer.innerHTML = '';
-            countBadge.innerText = reports.length;
+        haptic && haptic.notificationOccurred && haptic.notificationOccurred('warning');
+        loadWork();
+      });
+    }
 
-            if (reports.length === 0) {
-                listContainer.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">📝</div>
-                        <p>Hozircha yuborilmagan ishlar yo'q.<br>Botga xabar yozing.</p>
-                    </div>`;
-                return;
+    // --- PLANNER ---
+    async function loadPlans() {
+      // task_plans jadvali: id, creator_id, assignee_tg_id, task_text, plan_date, status
+      if (!userId) {
+        planList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
+        return;
+      }
+      if (!state.selectedEmployeeId) {
+        planList.innerHTML = '<div class="empty">Avval xodim tanlang</div>';
+        return;
+      }
+
+      const date = planDate.value || todayISO();
+      planList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+
+      const { data, error } = await supabaseClient
+        .from('task_plans')
+        .select('*')
+        .eq('creator_id', userId)
+        .eq('assignee_tg_id', state.selectedEmployeeId)
+        .eq('plan_date', date)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        planList.innerHTML = '<div class="empty">Planner jadvali yo\'q yoki xatolik</div>';
+        return;
+      }
+
+      const items = data || [];
+      planCount.textContent = String(items.length);
+      renderPlans(items);
+    }
+
+    function renderPlans(items) {
+      if (!items.length) {
+        planList.innerHTML = '<div class="empty">Reja yo\'q. Task qo\'shing ✨</div>';
+        return;
+      }
+
+      planList.innerHTML = '';
+
+      items.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const statusLabel = p.status === 'sent' ? '🟢 yuborilgan' : (p.status === 'queued' ? '🟡 navbatda' : '🟣 draft');
+
+        card.innerHTML = `
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+            <div style="font-weight:900; line-height:1.35;">${escapeHtml(p.task_text || '')}</div>
+            <div class="badge" style="font-size:11px;">${statusLabel}</div>
+          </div>
+          <div class="cardFooter">
+            <button class="btn btnDanger" data-pdel="${p.id}">🗑️</button>
+            <button class="btn btnGhost" data-pedit="${p.id}">✏️ Edit</button>
+          </div>
+        `;
+
+        planList.appendChild(card);
+      });
+
+      planList.querySelectorAll('[data-pdel]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-pdel');
+          await deletePlan(id);
+        });
+      });
+
+      planList.querySelectorAll('[data-pedit]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-pedit');
+          await editPlan(id);
+        });
+      });
+    }
+
+    async function addPlan() {
+      if (!userId) return;
+      const date = planDate.value || todayISO();
+      const text = (planText.value || '').trim();
+      if (!text) {
+        haptic && haptic.notificationOccurred && haptic.notificationOccurred('error');
+        tg.showAlert('Task matnini yozing');
+        return;
+      }
+      if (!state.selectedEmployeeId) {
+        tg.showAlert('Xodim tanlanmagan');
+        return;
+      }
+
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+
+      const { error } = await supabaseClient
+        .from('task_plans')
+        .insert([{ 
+          creator_id: userId,
+          assignee_tg_id: state.selectedEmployeeId,
+          task_text: text,
+          plan_date: date,
+          status: 'draft'
+        }]);
+
+      if (error) {
+        tg.showAlert('Qo‘shilmadi: ' + error.message);
+        return;
+      }
+
+      planText.value = '';
+      haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
+      loadPlans();
+    }
+
+    async function deletePlan(id) {
+      haptic && haptic.impactOccurred && haptic.impactOccurred('medium');
+      tg.showConfirm("Taskni o'chirmoqchimisiz?", async ok => {
+        if (!ok) return;
+
+        const { error } = await supabaseClient
+          .from('task_plans')
+          .delete()
+          .eq('id', id)
+          .eq('creator_id', userId);
+
+        if (error) {
+          tg.showAlert('O‘chirilmadi: ' + error.message);
+          return;
+        }
+
+        haptic && haptic.notificationOccurred && haptic.notificationOccurred('warning');
+        loadPlans();
+      });
+    }
+
+    async function editPlan(id) {
+      // quick inline edit via popup
+      const { data } = await supabaseClient
+        .from('task_plans')
+        .select('task_text')
+        .eq('id', id)
+        .maybeSingle();
+
+      const current = data && data.task_text ? data.task_text : '';
+
+      tg.showPopup({
+        title: 'Taskni tahrirlash',
+        message: 'Yangi matnni yozing (keyin OK)',
+        buttons: [
+          { id: 'ok', type: 'ok', text: 'OK' },
+          { id: 'cancel', type: 'cancel', text: 'Bekor' }
+        ]
+      }, async (btnId) => {
+        if (btnId !== 'ok') return;
+        const newText = prompt('Task matni:', current);
+        if (!newText || !newText.trim()) return;
+
+        const { error } = await supabaseClient
+          .from('task_plans')
+          .update({ task_text: newText.trim() })
+          .eq('id', id)
+          .eq('creator_id', userId);
+
+        if (error) {
+          tg.showAlert('Saqlanmadi: ' + error.message);
+          return;
+        }
+
+        haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
+        loadPlans();
+      });
+    }
+
+    async function dispatchPlans() {
+      // Bu joyda eng oson variant: WebApp -> Botga data yuborish.
+      // Bot web_app_data update orqali tasklarni xodimlarga yuboradi.
+      // Payload: type=dispatch_plans, date=YYYY-MM-DD, mode=day|week
+
+      const date = planDate.value || todayISO();
+      if (!userId) return;
+
+      const { data, error } = await supabaseClient
+        .from('task_plans')
+        .select('*')
+        .eq('creator_id', userId)
+        .eq('plan_date', date)
+        .in('status', ['draft', 'queued']);
+
+      if (error) {
+        tg.showAlert('Xatolik: ' + error.message);
+        return;
+      }
+
+      const items = data || [];
+      if (!items.length) {
+        tg.showAlert('Yuborish uchun draft task yo‘q');
+        return;
+      }
+
+      tg.showConfirm(`📤 ${formatNiceDate(date)} rejasini xodimlarga yuboramizmi?`, async ok => {
+        if (!ok) return;
+
+        // 1) DB status -> queued
+        const ids = items.map(x => x.id);
+        await supabaseClient
+          .from('task_plans')
+          .update({ status: 'queued' })
+          .in('id', ids)
+          .eq('creator_id', userId);
+
+        // 2) Botga signal
+        try {
+          tg.sendData(JSON.stringify({
+            type: 'dispatch_plans',
+            date,
+            mode: state.planMode
+          }));
+
+          haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
+          tg.showPopup({ title: '✅ Navbatga qo‘yildi', message: 'Bot xodimlarga yuborishni boshlaydi', buttons: [{ type: 'ok' }] });
+        } catch {
+          tg.showAlert('Botga data yuborilmadi');
+        }
+
+        loadPlans();
+      });
+    }
+
+    // --- ANALYTICS ---
+    function getRangeDates() {
+      const now = new Date();
+      const start = new Date(now);
+      const end = new Date(now);
+
+      if (state.range === 'today') {
+        // same day
+      }
+
+      if (state.range === 'week') {
+        const day = (now.getDay() + 6) % 7;
+        start.setDate(now.getDate() - day);
+      }
+
+      if (state.range === 'month') {
+        start.setDate(1);
+      }
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      return { start, end };
+    }
+
+    function isoDateFromDate(d) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    async function loadAnalytics() {
+      // Boss bo'lmasa: ogohlantiramiz
+      if (state.role !== 'boss') {
+        analyticsList.innerHTML = '<div class="empty">Bu bo‘lim faqat rahbar uchun 🔒</div>';
+        teamCount.textContent = '0';
+        return;
+      }
+
+      analyticsList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+
+      const { start, end } = getRangeDates();
+      const startIso = isoDateFromDate(start);
+      const endIso = isoDateFromDate(end);
+
+      // 1) Plans
+      const plansRes = await supabaseClient
+        .from('task_plans')
+        .select('assignee_tg_id, plan_date, status')
+        .gte('plan_date', startIso)
+        .lte('plan_date', endIso);
+
+      // 2) Reports (sent)
+      const repRes = await supabaseClient
+        .from('reports')
+        .select('user_id, created_at, status')
+        .eq('status', 'sent')
+        .gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+
+      if (plansRes.error || repRes.error) {
+        analyticsList.innerHTML = '<div class="empty">Statistika yuklanmadi</div>';
+        return;
+      }
+
+      const plans = plansRes.data || [];
+      const reps = repRes.data || [];
+
+      // build maps
+      const plannedByUser = new Map();
+      plans.forEach(p => {
+        const uid = Number(p.assignee_tg_id);
+        plannedByUser.set(uid, (plannedByUser.get(uid) || 0) + 1);
+      });
+
+      const doneByUser = new Map();
+      reps.forEach(r => {
+        const uid = Number(r.user_id);
+        doneByUser.set(uid, (doneByUser.get(uid) || 0) + 1);
+      });
+
+      // render employees
+      const emps = state.employees || [];
+      teamCount.textContent = String(emps.length);
+
+      if (!emps.length) {
+        analyticsList.innerHTML = '<div class="empty">Xodimlar yo‘q. /bind orqali bog‘lang</div>';
+        return;
+      }
+
+      analyticsList.innerHTML = '';
+
+      emps.forEach(emp => {
+        const planned = plannedByUser.get(emp.id) || 0;
+        const done = doneByUser.get(emp.id) || 0;
+        const pct = planned <= 0 ? (done > 0 ? 100 : 0) : Math.min(100, Math.round((done / planned) * 100));
+        const extra = Math.max(0, done - planned);
+
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        card.innerHTML = `
+          <div class="row">
+            <div style="font-weight:950;">${escapeHtml(emp.name)}</div>
+            <div class="badge">${pct}%</div>
+          </div>
+
+          <div class="kpiGrid">
+            <div class="kpi">
+              <div class="num">${planned}</div>
+              <div class="lbl">Reja task</div>
+            </div>
+            <div class="kpi">
+              <div class="num">${done}</div>
+              <div class="lbl">Bajarilgan</div>
+            </div>
+            <div class="kpi">
+              <div class="num">${extra}</div>
+              <div class="lbl">Ortiqcha</div>
+            </div>
+          </div>
+
+          <div class="progressWrap">
+            <div class="progress" style="width:${pct}%;"></div>
+          </div>
+
+          <div class="tiny">${rangeLabel()} • Reja: ${planned} ta, Natija: ${done} ta</div>
+        `;
+
+        analyticsList.appendChild(card);
+      });
+    }
+
+    function rangeLabel() {
+      if (state.range === 'today') return 'Bugun';
+      if (state.range === 'week') return 'Bu hafta';
+      return 'Bu oy';
+    }
+
+    // --- helpers ---
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    }
+
+    // --- events ---
+    tabs.forEach(t => {
+      t.addEventListener('click', () => {
+        const key = t.dataset.tab;
+        haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+        setActiveTab(key);
+        smartRefresh();
+      });
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      smartRefresh();
+    });
+
+    secondaryCta.addEventListener('click', () => {
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      smartRefresh();
+    });
+
+    primaryCta.addEventListener('click', async () => {
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+
+      if (state.tab === 'work') {
+        // User botdagi /send funksiyasini ishlatishi kerak
+        tg.showPopup({
+          title: '🚀 Yuborish',
+          message: 'Hisobotni yuborish uchun botda /send buyrug‘ini bering. Bu mini app tahrirlash uchun.',
+          buttons: [{ type: 'ok' }]
+        });
+        return;
+      }
+
+      if (state.tab === 'planner') {
+        await dispatchPlans();
+        return;
+      }
+
+      if (state.tab === 'analytics') {
+        await loadAnalytics();
+        return;
+      }
+    });
+
+    workFilters.addEventListener('click', (e) => {
+      const el = e.target;
+      if (!el.classList.contains('pill')) return;
+      const f = el.dataset.filter;
+      state.workFilter = f;
+      Array.from(workFilters.querySelectorAll('.pill')).forEach(p => p.classList.toggle('active', p.dataset.filter === f));
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      loadWork();
+    });
+
+    Array.from(document.querySelectorAll('[data-mode]')).forEach(p => {
+      p.addEventListener('click', () => {
+        state.planMode = p.dataset.mode;
+        Array.from(document.querySelectorAll('[data-mode]')).forEach(x => x.classList.toggle('active', x.dataset.mode === state.planMode));
+        haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      });
+    });
+
+    rangeFilters.addEventListener('click', (e) => {
+      const el = e.target;
+      if (!el.classList.contains('pill')) return;
+      const r = el.dataset.range;
+      state.range = r;
+      Array.from(rangeFilters.querySelectorAll('.pill')).forEach(p => p.classList.toggle('active', p.dataset.range === r));
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      loadAnalytics();
+    });
+
+    addPlanBtn.addEventListener('click', addPlan);
+
+    clearPlanBtn.addEventListener('click', () => {
+      planText.value = '';
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+    });
+
+    planDate.addEventListener('change', () => {
+      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      loadPlans();
+    });
+
+    function smartRefresh() {
+      if (state.tab === 'work') loadWork();
+      if (state.tab === 'planner') loadPlans();
+      if (state.tab === 'analytics') loadAnalytics();
+    }
+
+    // --- init ---
+    async function init() {
+      if (!userId) {
+        tg.showAlert('Telegram user topilmadi (initData error)');
+        return;
+      }
+
+      planDate.value = todayISO();
+
+      await loadRole();
+      await loadEmployees();
+      await loadWork();
+
+      // Planner uchun ham start
+      await loadPlans();
+
+      // Boss bo'lsa analytics ham start
+      if (state.role === 'boss') await loadAnalytics();
+
+      // Default subtitl
+      setSubtitle('Pending ishlarni tartibga keltirish');
+
+      // Boss bo'lmasa, Analytics tabni bosganda bloklaymiz (UX)
+      tabs.forEach(t => {
+        if (t.dataset.tab === 'analytics') {
+          t.addEventListener('click', () => {
+            if (state.role !== 'boss') {
+              tg.showPopup({
+                title: '🔒 Rahbar bo‘limi',
+                message: 'Bu bo‘lim faqat rahbar uchun ochiq. Admin app_roles jadvalida rol beradi.',
+                buttons: [{ type: 'ok' }]
+              });
             }
-
-            reports.forEach(report => {
-                const card = document.createElement('div');
-                card.className = 'report-card';
-                card.innerHTML = `
-                    <textarea class="report-textarea" 
-                        oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"
-                        id="text-${report.id}">${report.content}</textarea>
-                    <div class="card-footer">
-                        <button class="btn-icon btn-delete" onclick="deleteReport('${report.id}')">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
-                        <button class="btn-save" id="save-${report.id}" onclick="updateReport('${report.id}')">Saqlash</button>
-                    </div>
-                `;
-                listContainer.appendChild(card);
-                
-                // Textarea balandligini moslash
-                const txt = document.getElementById(`text-${report.id}`);
-                txt.style.height = txt.scrollHeight + 'px';
-            });
+          });
         }
+      });
 
-        async function updateReport(id) {
-            const content = document.getElementById(`text-${id}`).value;
-            const btn = document.getElementById(`save-${id}`);
-            
-            btn.innerText = "⏳";
-            const { error } = await supabaseClient.from('reports').update({ content }).eq('id', id);
+      // Planner bo'lmasa ham ishlasin (hozircha), keyin rol bilan cheklasa bo'ladi
+    }
 
-            if (error) {
-                tg.showAlert("Saqlanmadi!");
-            } else {
-                btn.innerText = "✅";
-                btn.style.background = "#34c759";
-                haptic.notificationOccurred('success');
-                setTimeout(() => { 
-                    btn.innerText = "Saqlash"; 
-                    btn.style.background = ""; 
-                }, 2000);
-            }
-        }
-
-        async function deleteReport(id) {
-            haptic.impactOccurred('medium');
-            tg.showConfirm("Ushbu ishni ro'yxatdan o'chirmoqchimisiz?", async (ok) => {
-                if (ok) {
-                    const { error } = await supabaseClient.from('reports').delete().eq('id', id);
-                    if (!error) {
-                        loadReports();
-                        haptic.notificationOccurred('warning');
-                    }
-                }
-            });
-        }
-
-        loadReports();
-    </script>
+    init();
+  </script>
 </body>
 </html>
