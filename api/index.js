@@ -45,9 +45,12 @@ const escapeHTML = (str) => {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 };
-// ====== CLICKUP STATUS HELPERS (FIX: statusKeyOf not defined) ======
+
+// ====== CLICKUP TASK STATUS + TG MESSAGE SYNC (FIX) ======
+// Status nomlarini normallashtiramiz (ClickUp workspace'da custom bo'lishi mumkin)
 const norm = (s) => String(s || '').toLowerCase().trim();
 
+// Bizga 3 ta holat kerak: open | process | done
 const statusKeyOf = (statusRaw) => {
   const s = norm(statusRaw);
   if (!s) return 'open';
@@ -84,7 +87,8 @@ const buildTaskKeyboard = (taskId, statusKey) => {
   ]);
 };
 
-// TG xabarini DB'da saqlash / update qilish
+// ====== CLICKUP -> TG MESSAGE MAPPING (idempotency) ======
+// clickup_task_messages jadvali: (task_id, assignee_id) unique / primary key
 const upsertTaskMessageRow = async ({
   task_id,
   assignee_id,
@@ -93,7 +97,7 @@ const upsertTaskMessageRow = async ({
   message_id,
   last_status,
 }) => {
-  return supabase.from('clickup_task_messages').upsert(
+  const { data, error } = await supabase.from('clickup_task_messages').upsert(
     {
       task_id,
       assignee_id,
@@ -105,17 +109,66 @@ const upsertTaskMessageRow = async ({
     },
     { onConflict: 'task_id,assignee_id' }
   );
+
+  if (error) {
+    console.error('❌ Supabase upsert clickup_task_messages error:', error.message);
+  }
+  return { data, error };
 };
 
 const getTaskMessageRow = async (task_id, assignee_id) => {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('clickup_task_messages')
     .select('task_id, assignee_id, telegram_id, chat_id, message_id, last_status')
     .eq('task_id', task_id)
     .eq('assignee_id', assignee_id)
     .single();
 
+  // .single() "not found" holatda ham error qaytaradi (PGRST116). Bu normal.
+  if (error && error.code !== 'PGRST116') {
+    console.error('❌ Supabase select clickup_task_messages error:', error.message);
+  }
   return data || null;
+};
+
+// Concurrency/Retry'larda 1 ta xabar yuborilishi uchun "reserve" qilamiz.
+// Birinchi kelgan webhook reserve qiladi, boshqalar esa skip qiladi.
+const reserveTaskMessageRow = async ({ task_id, assignee_id, telegram_id, last_status }) => {
+  const { data, error } = await supabase
+    .from('clickup_task_messages')
+    .upsert(
+      [
+        {
+          task_id,
+          assignee_id,
+          telegram_id,
+          chat_id: 0,
+          message_id: 0,
+          last_status: last_status || 'open',
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      { onConflict: 'task_id,assignee_id', ignoreDuplicates: true }
+    )
+    .select('task_id');
+
+  if (error) {
+    console.error('❌ Supabase reserve error:', error.message);
+    return { reserved: false, error };
+  }
+
+  // ignoreDuplicates bo'lsa: insert bo'lsa data.length > 0, mavjud bo'lsa []
+  const reserved = Array.isArray(data) && data.length > 0;
+  return { reserved, error: null };
+};
+
+const deleteTaskMessageRow = async (task_id, assignee_id) => {
+  const { error } = await supabase
+    .from('clickup_task_messages')
+    .delete()
+    .eq('task_id', task_id)
+    .eq('assignee_id', assignee_id);
+  if (error) console.error('❌ Supabase delete clickup_task_messages error:', error.message);
 };
 
 
@@ -204,13 +257,11 @@ const verifyTelegramSecret = (req) => {
 async function handleClickUpWebhook(req) {
   const { event, task_id } = req.body || {};
 
-  // taskCreated / taskUpdated / taskAssigneeUpdated
-  if (event !== 'taskCreated' && event !== 'taskUpdated' && event !== 'taskAssigneeUpdated') {
-    return;
-  }
+  // ClickUp'dan ko'p event keladi: taskCreated / taskUpdated / taskAssigneeUpdated
+  if (event !== 'taskCreated' && event !== 'taskUpdated' && event !== 'taskAssigneeUpdated') return;
   if (!task_id) return;
 
-  // Task data'ni olib kelamiz
+  // Task data'ni olib kelamiz (assignee ba'zan kechikib keladi)
   let task;
   for (let i = 0; i < 3; i++) {
     try {
@@ -219,93 +270,125 @@ async function handleClickUpWebhook(req) {
       console.error(`❌ ClickUp task fetch error (${task_id}):`, err?.message || err);
       return;
     }
-    // assignee bo'lmasa biroz kutib qayta urinib ko'ramiz
     if (task?.assignees?.length) break;
     await delay(800);
   }
 
   if (!task?.assignees?.length) {
-    console.log('⚠️ Assignee topilmadi');
+    console.log(`⚠️ Assignee topilmadi (task ${task_id})`);
     return;
   }
 
-  const currentStatus = task?.status?.status || '';
-  const currentKey = statusKeyOf(currentStatus);
+  const nowKey = statusKeyOf(task?.status?.status);
 
   for (const assignee of task.assignees) {
     // mapping: ClickUp user id -> telegram id
-    const { data: userMap } = await supabase
+    const { data: userMap, error: mapErr } = await supabase
       .from('users_mapping')
       .select('telegram_id')
       .eq('clickup_user_id', assignee.id)
       .single();
 
+    if (mapErr && mapErr.code !== 'PGRST116') {
+      console.error('❌ users_mapping select error:', mapErr.message);
+    }
     if (!userMap?.telegram_id) continue;
 
-    const tgId = userMap.telegram_id;
-    const assigneeId = assignee.id;
+    const telegramId = userMap.telegram_id;
 
-    // Avval DB'dan shu task+assignee uchun xabar bor-yo'qligini tekshiramiz
-    const row = await getTaskMessageRow(task_id, assigneeId);
+    // 1) Agar oldin yuborilgan bo'lsa — xabarni EDIT qilamiz
+    let row = await getTaskMessageRow(task_id, assignee.id);
 
-    const text = buildTaskText(task);
-    const keyboard = buildTaskKeyboard(task_id, currentKey);
+    // Agar row bor-u, lekin message_id/chat_id 0 bo'lsa — boshqa webhook send qilayotgan bo'lishi mumkin.
+    if (row && (!row.chat_id || !row.message_id)) {
+      console.log(`⏳ Pending send (skip) task ${task_id} assignee ${assignee.id}`);
+      continue;
+    }
 
-    // 1) Agar xabar hali yuborilmagan bo'lsa -> yuboramiz va message_id ni saqlaymiz
-    if (!row?.message_id || !row?.chat_id) {
-      try {
-        const sent = await bot.telegram.sendMessage(tgId, text, {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
+    if (row && row.chat_id && row.message_id) {
+      const prevKey = row.last_status || 'open';
+      if (prevKey !== nowKey) {
+        const text = buildTaskText(task);
+        const keyboard = buildTaskKeyboard(task_id, nowKey);
+        try {
+          await bot.telegram.editMessageText(row.chat_id, row.message_id, undefined, text, {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            ...keyboard,
+          });
 
-        await upsertTaskMessageRow({
-          task_id,
-          assignee_id: assigneeId,
-          telegram_id: tgId,
-          chat_id: sent.chat.id,
-          message_id: sent.message_id,
-          last_status: norm(currentStatus),
-        });
+          await upsertTaskMessageRow({
+            task_id,
+            assignee_id: assignee.id,
+            telegram_id: telegramId,
+            chat_id: row.chat_id,
+            message_id: row.message_id,
+            last_status: nowKey,
+          });
 
-        console.log(`✅ Task ${task_id} → TG ${tgId} (saved msg_id=${sent.message_id})`);
-      } catch (err) {
-        console.error(`❌ Telegram send error (task ${task_id}):`, err?.message || err);
+          console.log(`♻️ Updated TG msg for task ${task_id} (${prevKey} -> ${nowKey})`);
+        } catch (err) {
+          const msg = err?.response?.description || err?.message || String(err);
+          // "message is not modified" bo'lsa jim o'tamiz
+          if (!String(msg).toLowerCase().includes('message is not modified')) {
+            console.error(`❌ Telegram edit error (task ${task_id}):`, msg);
+          }
+        }
+      } else {
+        console.log(`ℹ️ No status change for task ${task_id} (${nowKey})`);
       }
       continue;
     }
 
-    // 2) Xabar bor bo'lsa -> status o'zgargan bo'lsa edit qilamiz
-    const prev = norm(row.last_status);
-    const now = norm(currentStatus);
+    // 2) Row yo'q bo'lsa — yangi xabar faqat taskCreated / taskAssigneeUpdated event'larda yuboriladi.
+    // taskUpdated kelib qolsa (retry/parallel) — dubllar chiqmasin deb SKIP qilamiz.
+    if (event === 'taskUpdated') {
+      console.log(`⛔ Skip sending on taskUpdated (no row yet): task ${task_id}`);
+      continue;
+    }
 
-    if (prev !== now) {
-      try {
-        await bot.telegram.editMessageText(row.chat_id, row.message_id, undefined, text, {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
+    // 3) Concurrency/Retry'da 1 marta yuborish uchun reserve qilamiz
+    const { reserved } = await reserveTaskMessageRow({
+      task_id,
+      assignee_id: assignee.id,
+      telegram_id: telegramId,
+      last_status: nowKey,
+    });
 
-        await upsertTaskMessageRow({
-          task_id,
-          assignee_id: assigneeId,
-          telegram_id: tgId,
-          chat_id: row.chat_id,
-          message_id: row.message_id,
-          last_status: now,
-        });
+    if (!reserved) {
+      console.log(`⛔ Duplicate notify (reserved already): ${task_id}:${assignee.id}`);
+      continue;
+    }
 
-        console.log(`♻️ Updated TG msg for task ${task_id} (${prev} -> ${now})`);
-      } catch (err) {
-        console.error(`❌ Telegram edit error (task ${task_id}):`, err?.message || err);
-      }
-    } else {
-      // status o'zgarmagan bo'lsa hech narsa qilmaymiz
-      console.log(`ℹ️ No status change for task ${task_id} (${now})`);
+    // 4) Birinchi bo'lib reserve qilganimiz uchun endi SEND qilamiz
+    const text = buildTaskText(task);
+    const keyboard = buildTaskKeyboard(task_id, nowKey);
+
+    try {
+      const msg = await bot.telegram.sendMessage(telegramId, text, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...keyboard,
+      });
+
+      await upsertTaskMessageRow({
+        task_id,
+        assignee_id: assignee.id,
+        telegram_id: telegramId,
+        chat_id: msg.chat.id,
+        message_id: msg.message_id,
+        last_status: nowKey,
+      });
+
+      console.log(`✅ Task ${task_id} → TG ${telegramId} (msg_id=${msg.message_id})`);
+    } catch (err) {
+      const em = err?.response?.description || err?.message || String(err);
+      console.error(`❌ Telegram send error (task ${task_id}):`, em);
+      // send fail bo'lsa reserve row'ni o'chirib tashlaymiz (ClickUp retry kelganda qayta yuborishi mumkin)
+      await deleteTaskMessageRow(task_id, assignee.id);
     }
   }
 }
-
 
 // ====== TELEGRAM COMMANDS ======
 // /bind - faqat admin (TG_ID ClickUp_ID Ism)
@@ -526,47 +609,14 @@ bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
 
   try {
     await clickupRequest(`task/${taskId}`, 'PUT', { status: statusName });
-    // Status o'zgargandan keyin xabar matnini ham yangilab qo'yamiz (va DB last_status)
-    const updatedTask = await clickupRequest(`task/${taskId}`);
-    const updatedStatus = updatedTask?.status?.status || '';
-    const key = statusKeyOf(updatedStatus);
 
-    // DB'dagi recordni topib, last_status yangilash
-    const { data: map } = await supabase
-      .from('users_mapping')
-      .select('clickup_user_id')
-      .eq('telegram_id', ctx.from.id)
-      .single();
+    // Task'ni qayta olib kelib, TG xabarni ham update qilamiz (matn + tugmalar)
+    const task = await clickupRequest(`task/${taskId}`);
+    const key = statusKeyOf(task?.status?.status);
 
-    const assigneeId = map?.clickup_user_id;
-
-    if (assigneeId) {
-      const row = await getTaskMessageRow(taskId, assigneeId);
-      if (row?.chat_id && row?.message_id) {
-        try {
-          await bot.telegram.editMessageText(row.chat_id, row.message_id, undefined, buildTaskText(updatedTask), {
-            parse_mode: 'HTML',
-            ...buildTaskKeyboard(taskId, key),
-          });
-        } catch (e) {
-          // edit qilolmasak ham davom etamiz
-          console.warn('⚠️ Could not edit message after button action:', e?.message || e);
-        }
-
-        await upsertTaskMessageRow({
-          task_id: taskId,
-          assignee_id: assigneeId,
-          telegram_id: ctx.from.id,
-          chat_id: row.chat_id,
-          message_id: row.message_id,
-          last_status: norm(updatedStatus),
-        });
-      }
-    }
-
-
+    // Xabarni yangilash (Jarayonda bo'lsa: faqat Yakunlash; Done bo'lsa: tugmalar yo'q)
     if (action === 'done') {
-      const task = await clickupRequest(`task/${taskId}`);
+      // Hisobotga qo'shish (oldingi logikani saqlaymiz)
       await supabase.from('reports').insert([
         {
           user_id: ctx.from.id,
@@ -574,14 +624,46 @@ bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
           status: 'pending',
         },
       ]);
+
       await ctx.editMessageText(`✅ <b>Vazifa yakunlandi va hisobotga qo'shildi!</b>`, {
         parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...buildTaskKeyboard(taskId, 'done'),
       });
     } else {
       await ctx.answerCbQuery("Status 'Jarayonda'ga o'zgardi");
-      await ctx.editMessageReplyMarkup(
-        Markup.inlineKeyboard([[Markup.button.callback('✅ Yakunlash', `cu_status_done_${taskId}`)]]).reply_markup
-      );
+
+      await ctx.editMessageText(buildTaskText(task), {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...buildTaskKeyboard(taskId, key),
+      });
+    }
+
+    // Shu xabarni DB'ga bog'lab qo'yamiz (old messages uchun ham foydali)
+    const chatId = ctx.chat?.id;
+    const messageId = ctx.callbackQuery?.message?.message_id;
+    if (chatId && messageId) {
+      const { data: mapRow, error: mapErr } = await supabase
+        .from('users_mapping')
+        .select('clickup_user_id')
+        .eq('telegram_id', ctx.from.id)
+        .single();
+
+      if (mapErr && mapErr.code !== 'PGRST116') {
+        console.error('❌ users_mapping select error:', mapErr.message);
+      }
+
+      const clickupAssigneeId = mapRow?.clickup_user_id || ctx.from.id;
+
+      await upsertTaskMessageRow({
+        task_id: taskId,
+        assignee_id: clickupAssigneeId,
+        telegram_id: ctx.from.id,
+        chat_id: chatId,
+        message_id: messageId,
+        last_status: key,
+      });
     }
   } catch (err) {
     console.error('ClickUp status update error:', err?.message || err);
