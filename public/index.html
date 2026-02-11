@@ -386,6 +386,7 @@
       display:none;
       font-weight: 850;
       font-size: 13px;
+      text-align: center;
     }
     .toast.show{ display:block; animation: toastIn .14s ease-out; }
     .toast.ok{ border-color: rgba(63,214,140,.25); }
@@ -449,7 +450,7 @@
     <div class="topbar">
       <div class="brand">
         <div class="title">
-          ⚡ Uyqur Yordamchi
+          Uyqur Yordamchi ⚡
           <span id="roleBadge" class="badge hidden">ROLE</span>
         </div>
         <div id="subtitle" class="subtitle">Live tasks va rejalar</div>
@@ -474,19 +475,18 @@
         <div class="row">
           <div>
             <div style="font-weight:950; font-size:15px;">Mening ishlarim</div>
-            <div class="tiny">Pending ishlarni tahrirlash, autosave va keyin botga yuborish</div>
           </div>
           <span id="workCount" class="badge">0</span>
         </div>
 
         <div style="margin-top:12px;">
-          <input id="workSearch" class="input" type="search" placeholder="🔎 Qidirish (matn bo‘yicha)..." />
+          <input id="workSearch" class="input" type="search" placeholder="🔎 Ish qidirish..." />
         </div>
 
         <div class="pillRow" id="workFilters" style="margin-top:12px;">
-          <div class="pill active" data-filter="pending">🟡 Pending</div>
-          <div class="pill" data-filter="sent">🟢 Sent</div>
-          <div class="pill" data-filter="all">📚 All</div>
+          <div class="pill active" data-filter="pending">🟡 Bajarilgan</div>
+          <div class="pill" data-filter="sent">🟢 Yuborilgan</div>
+          <div class="pill" data-filter="all">📚 Barchasi</div>
         </div>
 
         <div id="workList" class="cards">
@@ -533,20 +533,22 @@
 
         <div style="margin-top:12px;">
           <div class="mini">Task matni</div>
-          <textarea id="planText" class="textarea" rows="3" placeholder="Masalan: 🔥 Inventar, ⚡ Ombor qabul, 📌 ClickUp tasklar..."></textarea>
+          <textarea id="planText" class="textarea" rows="3" placeholder="Type here"style="margin-top:10px;"></textarea>
           <div class="row" style="margin-top:10px;">
             <button id="addPlanBtn" class="btn btnPrimary">➕ Qo‘shish</button>
             <button id="clearPlanBtn" class="btn btnGhost">🧹 Tozalash</button>
           </div>
         </div>
-
+          <!-- • Planner tasklari <b>task_plans</b> jadvalga saqlanadi.<br />
+          • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi (queued → sent). -->
         <div class="hintLine">
-          • Planner tasklari <b>task_plans</b> jadvalga saqlanadi.<br />
-          • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi (queued → sent).
+          • Sana va xodim tanlang, keyin vazifa matnini yozing.<br />
+          • Ishlarni <b>raqamlamagan</b> holda birma bir kiriting.<br />
+          • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi.
         </div>
 
         <div id="planList" class="cards">
-          <div class="empty">Reja yo‘q. Sana va xodim tanlab, task qo‘shing ✨</div>
+          <div class="empty">Hozircha reja yo‘q ✨</div>
         </div>
       </div>
 
@@ -570,10 +572,9 @@
           <div class="skeleton"></div>
           <div class="skeleton"></div>
         </div>
-
-        <div class="hintLine">
+        <!-- <div class="hintLine">
           Reja: <b>task_plans</b> jadvalidan. Natija: <b>reports</b> jadvalidan (sent).
-        </div>
+        </div> -->
       </div>
 
     </div>
