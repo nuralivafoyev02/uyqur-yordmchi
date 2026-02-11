@@ -45,6 +45,79 @@ const escapeHTML = (str) => {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 };
+// ====== CLICKUP STATUS HELPERS (FIX: statusKeyOf not defined) ======
+const norm = (s) => String(s || '').toLowerCase().trim();
+
+const statusKeyOf = (statusRaw) => {
+  const s = norm(statusRaw);
+  if (!s) return 'open';
+  if (s === norm(CLICKUP_STATUS_DONE)) return 'done';
+  if (s === norm(CLICKUP_STATUS_PROCESS)) return 'process';
+  // boshqa custom statuslar bo'lsa ham OPEN deb tutamiz
+  return 'open';
+};
+
+const buildTaskText = (task) => {
+  const st = (task?.status?.status || '').toUpperCase();
+  return (
+    `📌 <b>Vazifa:</b>\n\n` +
+    `<b>Nomi:</b> ${escapeHTML(task?.name || '')}\n` +
+    `<b>Status:</b> ${escapeHTML(st)}\n\n` +
+    `<a href="${task?.url}">ClickUp'da ochish</a>`
+  );
+};
+
+const buildTaskKeyboard = (taskId, statusKey) => {
+  if (statusKey === 'done') {
+    // yakunlanganda tugmalarni olib tashlaymiz
+    return Markup.inlineKeyboard([]);
+  }
+  if (statusKey === 'process') {
+    return Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Yakunlash', `cu_status_done_${taskId}`)],
+    ]);
+  }
+  // open (default)
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('🚀 Jarayonda', `cu_status_process_${taskId}`)],
+    [Markup.button.callback('✅ Yakunlash', `cu_status_done_${taskId}`)],
+  ]);
+};
+
+// TG xabarini DB'da saqlash / update qilish
+const upsertTaskMessageRow = async ({
+  task_id,
+  assignee_id,
+  telegram_id,
+  chat_id,
+  message_id,
+  last_status,
+}) => {
+  return supabase.from('clickup_task_messages').upsert(
+    {
+      task_id,
+      assignee_id,
+      telegram_id,
+      chat_id,
+      message_id,
+      last_status,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'task_id,assignee_id' }
+  );
+};
+
+const getTaskMessageRow = async (task_id, assignee_id) => {
+  const { data } = await supabase
+    .from('clickup_task_messages')
+    .select('task_id, assignee_id, telegram_id, chat_id, message_id, last_status')
+    .eq('task_id', task_id)
+    .eq('assignee_id', assignee_id)
+    .single();
+
+  return data || null;
+};
+
 
 // ClickUp API Helper
 const clickupRequest = async (endpoint, method = 'GET', body = null) => {
