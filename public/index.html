@@ -6,10 +6,10 @@
   <title>Uyqur Yordamchi</title>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    :root {
+    :root{
       --tg-bg: var(--tg-theme-bg-color, #0b0f14);
       --tg-text: var(--tg-theme-text-color, #e9eef7);
       --tg-hint: var(--tg-theme-hint-color, #8b94a7);
@@ -18,393 +18,428 @@
       --tg-button-text: var(--tg-theme-button-text-color, #0b0f14);
       --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #101722);
 
-      --card: rgba(255, 255, 255, 0.06);
-      --card-2: rgba(255, 255, 255, 0.08);
-      --border: rgba(255, 255, 255, 0.10);
-      --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      --card: rgba(255,255,255,.06);
+      --card-2: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.12);
+      --shadow: 0 14px 40px rgba(0,0,0,.35);
+
       --radius: 18px;
+      --radius-lg: 22px;
 
-      --ok: #34c759;
-      --warn: #ffcc00;
-      --bad: #ff3b30;
+      --ok: rgba(63, 214, 140, 1);
+      --warn: rgba(255, 204, 0, 1);
+      --bad: rgba(255, 92, 92, 1);
 
-      --pad: 16px;
+      --pad: 14px;
+      --pad-lg: 18px;
+
+      --fs-xxl: 18px;
+      --fs-xl: 16px;
+      --fs-md: 14px;
+      --fs-sm: 12px;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
 
-    * { box-sizing: border-box; }
-
-    body {
+    *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body{ height: 100%; }
+    body{
       margin: 0;
-      padding: 0;
-      background: radial-gradient(1200px 900px at 10% -10%, rgba(78,164,255,0.22), transparent 55%),
-                  radial-gradient(900px 800px at 100% 10%, rgba(52,199,89,0.14), transparent 55%),
-                  radial-gradient(900px 800px at 20% 110%, rgba(255,204,0,0.12), transparent 60%),
-                  var(--tg-bg);
+      font-family: var(--sans);
+      background: var(--tg-bg);
       color: var(--tg-text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
     }
 
-    .app {
-      min-height: 100vh;
-      padding: var(--pad);
-      padding-bottom: 86px;
+    .app{
+      max-width: 820px;
+      margin: 0 auto;
+      padding-bottom: 88px; /* bottom bar */
     }
 
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 14px;
-      border-radius: var(--radius);
-      background: linear-gradient(180deg, var(--card-2), var(--card));
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+    /* Topbar */
+    .topbar{
       position: sticky;
-      top: 10px;
-      z-index: 20;
-    }
-
-    .brand {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.1;
-    }
-
-    .brand .title {
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .brand .subtitle {
-      font-size: 12px;
-      color: var(--tg-hint);
-      margin-top: 3px;
-    }
-
-    .iconBtn {
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: var(--tg-text);
-      cursor: pointer;
-      transition: transform 0.18s ease;
-    }
-
-    .iconBtn:active { transform: scale(0.97); }
-
-    .tabs {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .tab {
-      border-radius: 999px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: var(--tg-text);
-      font-weight: 700;
-      font-size: 13px;
-      text-align: center;
-      cursor: pointer;
-      user-select: none;
-      transition: transform 0.15s ease, background 0.15s ease;
-    }
-
-    .tab.active {
-      background: linear-gradient(180deg, rgba(78,164,255,0.35), rgba(78,164,255,0.12));
-      border-color: rgba(78,164,255,0.55);
-      box-shadow: 0 10px 20px rgba(78,164,255,0.12);
-    }
-
-    .tab:active { transform: scale(0.98); }
-
-    .view {
-      margin-top: 14px;
-    }
-
-    .section {
-      background: linear-gradient(180deg, var(--card-2), var(--card));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 14px;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,0)) , var(--tg-bg);
       backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-    }
-
-    .section + .section { margin-top: 14px; }
-
-    .row {
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      padding: 12px var(--pad);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
     }
 
-    .pillRow {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-
-    .pill {
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--tg-text);
-      cursor: pointer;
-      user-select: none;
-      transition: transform 0.15s ease;
-    }
-
-    .pill.active {
-      border-color: rgba(78,164,255,0.55);
-      background: rgba(78,164,255,0.16);
-    }
-
-    .pill:active { transform: scale(0.98); }
-
-    .badge {
+    .brand{ min-width: 0; }
+    .title{
       font-weight: 900;
-      font-size: 12px;
-      padding: 6px 10px;
+      letter-spacing: .2px;
+      font-size: var(--fs-xxl);
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .subtitle{
+      margin-top: 4px;
+      color: var(--tg-hint);
+      font-size: var(--fs-sm);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topActions{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .iconBtn{
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      color: var(--tg-text);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+    }
+    .iconBtn:active{ transform: scale(.98); }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap: 6px;
+      padding: 5px 10px;
       border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
       color: var(--tg-text);
+      font-size: 11px;
+      font-weight: 800;
     }
+    .badge.hidden{ display:none; }
+    .badge.ok{ border-color: rgba(63,214,140,.28); background: rgba(63,214,140,.10); color: rgba(190,255,220,1);}
+    .badge.warn{ border-color: rgba(255,204,0,.30); background: rgba(255,204,0,.10); color: rgba(255,240,190,1);}
+    .badge.bad{ border-color: rgba(255,92,92,.30); background: rgba(255,92,92,.10); color: rgba(255,205,205,1);}
+    .badge.mini{ font-weight: 800; font-size: 10px; padding: 4px 8px; opacity: .95; }
 
-    .muted { color: var(--tg-hint); }
-
-    .skeleton {
-      height: 98px;
-      border-radius: 16px;
-      margin-top: 10px;
-      background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06));
-      background-size: 200% 100%;
-      animation: shimmer 1.2s infinite linear;
-    }
-
-    @keyframes shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-
-    .cards {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    .card {
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(0,0,0,0.12);
-      padding: 12px;
-      transition: transform 0.16s ease;
-    }
-
-    .card:active { transform: scale(0.985); }
-
-    .textarea {
-      width: 100%;
-      border: none;
-      outline: none;
-      resize: none;
-      background: transparent;
-      color: var(--tg-text);
-      font-size: 15px;
-      line-height: 1.5;
-      padding: 0;
-    }
-
-    .cardFooter {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    /* Tabs */
+    .tabs{
+      padding: 10px var(--pad);
+      display:flex;
       gap: 10px;
     }
-
-    .btn {
-      border: none;
-      cursor: pointer;
-      border-radius: 12px;
-      padding: 10px 12px;
+    .tab{
+      flex: 1;
+      text-align:center;
+      padding: 10px 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
       font-weight: 900;
       font-size: 13px;
-      transition: transform 0.14s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      color: rgba(255,255,255,.85);
+      cursor:pointer;
+      user-select:none;
+    }
+    .tab.active{
+      background: rgba(78,164,255,.14);
+      border-color: rgba(78,164,255,.30);
+      color: rgba(220,240,255,1);
     }
 
-    .btn:active { transform: scale(0.98); }
+    /* Sections */
+    .view{ padding: 0 var(--pad); }
+    .section{ padding: 10px 0; }
+    .hidden{ display:none !important; }
 
-    .btnPrimary {
-      background: var(--tg-button);
-      color: var(--tg-button-text);
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
     }
+    .mini{ font-size: 11px; color: var(--tg-hint); font-weight: 800; }
+    .tiny{ font-size: 12px; color: var(--tg-hint); line-height: 1.35; }
 
-    .btnGhost {
-      background: rgba(255,255,255,0.06);
-      color: var(--tg-text);
-      border: 1px solid rgba(255,255,255,0.10);
-    }
-
-    .btnDanger {
-      background: rgba(255,59,48,0.16);
-      color: #ffd6d3;
-      border: 1px solid rgba(255,59,48,0.25);
-    }
-
-    .hintLine {
-      font-size: 12px;
-      color: var(--tg-hint);
-      margin-top: 10px;
-      line-height: 1.35;
-    }
-
-    .input {
+    .input{
       width: 100%;
-      border: 1px solid rgba(255,255,255,0.10);
       border-radius: 14px;
-      background: rgba(0,0,0,0.14);
-      padding: 12px;
+      padding: 12px 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
       color: var(--tg-text);
       outline: none;
       font-size: 14px;
     }
+    .input::placeholder{ color: rgba(255,255,255,.35); }
+    .input:focus{ border-color: rgba(78,164,255,.35); background: rgba(255,255,255,.07); }
 
-    .split {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .split{ display:flex; gap: 10px; }
+    .split > div{ flex:1; }
+
+    .pillRow{
+      display:flex;
       gap: 10px;
-      margin-top: 10px;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+      scrollbar-width: none;
     }
+    .pillRow::-webkit-scrollbar{ display:none; }
 
-    .mini {
+    .pill{
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
       font-size: 12px;
-      font-weight: 800;
-      color: var(--tg-hint);
-      margin-bottom: 6px;
+      font-weight: 900;
+      white-space: nowrap;
+      user-select: none;
+      cursor:pointer;
+      color: rgba(255,255,255,.86);
+    }
+    .pill.active{
+      background: rgba(78,164,255,.14);
+      border-color: rgba(78,164,255,.30);
+      color: rgba(220,240,255,1);
     }
 
-    .progressWrap {
-      margin-top: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.10);
+    /* Cards */
+    .cards{ display:flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .card{
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+      padding: 18px;
     }
-
-    .progress {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, rgba(78,164,255,0.95), rgba(52,199,89,0.8));
-      border-radius: 999px;
-      transition: width 0.4s ease;
+    .cardHeader{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 10px;
     }
-
-    .kpiGrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .kpi {
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(0,0,0,0.12);
-      padding: 10px;
-    }
-
-    .kpi .num {
-      font-size: 18px;
+    .cardTitle{
       font-weight: 950;
+      font-size: 13px;
+      color: rgba(255,255,255,.88);
+    }
+    .cardMeta{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content:flex-end;
     }
 
-    .kpi .lbl {
-      margin-top: 4px;
-      font-size: 11px;
+    textarea.textarea{
+      width: 100%;
+      min-height: 44px;
+      resize: none;
+      border-radius: 14px;
+      padding: 12px 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--tg-text);
+      outline: none;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    textarea.textarea:focus{ border-color: rgba(78,164,255,.35); background: rgba(255,255,255,.07); }
+
+    .cardFooter{
+      display:flex;
+      gap: 10px;
+      justify-content:flex-end;
+      margin-top: 10px;
+    }
+
+    .btn{
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.92);
+      cursor:pointer;
+      font-weight: 900;
+      font-size: 12px;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+    }
+    .btn:active{ transform: scale(.99); }
+    .btnPrimary{
+      background: rgba(78,164,255,.20);
+      border-color: rgba(78,164,255,.30);
+      color: rgba(220,240,255,1);
+    }
+    .btnDanger{
+      background: rgba(255,92,92,.12);
+      border-color: rgba(255,92,92,.25);
+      color: rgba(255,210,210,1);
+    }
+    .btnGhost{
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.10);
+      color: rgba(255,255,255,.86);
+    }
+    .btn[disabled]{
+      opacity: .5;
+      cursor:not-allowed;
+      transform:none !important;
+    }
+
+    .empty{
+      text-align:center;
+      padding: 28px 18px;
       color: var(--tg-hint);
-      font-weight: 800;
+      border-radius: 22px;
+      border: 1px dashed rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      line-height: 1.4;
     }
 
-    .bottomBar {
+    .skeleton{
+      height: 92px;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.08), rgba(255,255,255,.04));
+      background-size: 200% 200%;
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes shimmer { 0%{ background-position: 0% 0%; } 100%{ background-position: -200% 0%; } }
+
+    .hintLine{
+      margin-top: 12px;
+      color: rgba(255,255,255,.55);
+      font-size: 12px;
+      line-height: 1.4;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      border-radius: 22px;
+    }
+    a{ color: var(--tg-link); }
+
+    /* Bottom bar */
+    .bottomBar{
       position: fixed;
       left: 0;
       right: 0;
       bottom: 0;
-      padding: 10px 14px;
-      background: rgba(10,14,20,0.75);
-      border-top: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      display: flex;
+      z-index: 20;
+      padding: 12px var(--pad);
+      background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.50)), var(--tg-bg);
+      border-top: 1px solid rgba(255,255,255,.06);
+      display:flex;
       gap: 10px;
-      z-index: 50;
+      justify-content:center;
     }
-
-    .bottomBar .cta {
+    .cta{
       flex: 1;
+      max-width: 420px;
+      text-align:center;
+      padding: 12px 14px;
       border-radius: 16px;
-      padding: 14px 14px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.06);
-      color: var(--tg-text);
       font-weight: 950;
-      text-align: center;
-      cursor: pointer;
-      user-select: none;
+      letter-spacing: .2px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      cursor:pointer;
+      user-select:none;
+      color: rgba(255,255,255,.92);
+    }
+    .cta.primary{
+      background: rgba(78,164,255,.22);
+      border-color: rgba(78,164,255,.32);
+      color: rgba(220,240,255,1);
+    }
+    .cta[aria-disabled="true"]{ opacity:.55; cursor:not-allowed; }
+
+    /* Toast */
+    .toast{
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 92px;
+      z-index: 50;
+      min-width: 240px;
+      max-width: min(520px, 92vw);
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(16, 23, 34, .96);
+      color: rgba(255,255,255,.95);
+      box-shadow: 0 18px 40px rgba(0,0,0,.45);
+      display:none;
+      font-weight: 850;
+      font-size: 13px;
+    }
+    .toast.show{ display:block; animation: toastIn .14s ease-out; }
+    .toast.ok{ border-color: rgba(63,214,140,.25); }
+    .toast.warn{ border-color: rgba(255,204,0,.25); }
+    .toast.bad{ border-color: rgba(255,92,92,.25); }
+    @keyframes toastIn{ from{ transform: translateX(-50%) translateY(8px); opacity:0; } to{ transform: translateX(-50%) translateY(0); opacity:1; } }
+
+    /* Modal */
+    .modalOverlay{
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+    }
+    .modalOverlay.show{ display:flex; }
+    .modal{
+      width: min(720px, 92vw);
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(16, 23, 34, .96);
+      box-shadow: 0 22px 60px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    .modalHead{
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+    }
+    .modalTitle{ font-weight: 950; }
+    .modalBody{ padding: 14px 16px; }
+    .modalActions{
+      padding: 14px 16px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      display:flex;
+      gap: 10px;
+      justify-content:flex-end;
     }
 
-    .bottomBar .cta.primary {
-      background: linear-gradient(180deg, rgba(78,164,255,0.92), rgba(78,164,255,0.65));
-      color: #071019;
-      border-color: rgba(78,164,255,0.55);
+    .kbd{
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.85);
     }
-
-    .empty {
-      text-align: center;
-      padding: 26px 10px;
-      color: var(--tg-hint);
-      line-height: 1.35;
-    }
-
-    .tiny {
-      font-size: 11px;
-      color: var(--tg-hint);
-      margin-top: 6px;
-      line-height: 1.35;
-    }
-
-    .hidden { display: none !important; }
   </style>
 </head>
 
@@ -413,16 +448,23 @@
 
     <div class="topbar">
       <div class="brand">
-        <div class="title">⚡ Uyqur Yordamchi <span id="roleBadge" class="badge hidden">ROLE</span></div>
+        <div class="title">
+          ⚡ Uyqur Yordamchi
+          <span id="roleBadge" class="badge hidden">ROLE</span>
+        </div>
         <div id="subtitle" class="subtitle">Live tasks va rejalar</div>
       </div>
-      <button id="refreshBtn" class="iconBtn" aria-label="Refresh">↻</button>
+
+      <div class="topActions">
+        <button id="backToBotBtn" class="iconBtn" aria-label="Back">↩︎</button>
+        <button id="refreshBtn" class="iconBtn" aria-label="Refresh">↻</button>
+      </div>
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="work">📝 Ishlar</div>
-      <div class="tab" data-tab="planner">🗓️ Planner</div>
-      <div class="tab" data-tab="analytics">📊 Rahbar</div>
+      <div class="tab active" data-tab="work" id="tab-work">📝 Ishlar</div>
+      <div class="tab" data-tab="planner" id="tab-planner">🗓️ Planner</div>
+      <div class="tab" data-tab="analytics" id="tab-analytics">📊 Rahbar</div>
     </div>
 
     <div class="view">
@@ -432,12 +474,16 @@
         <div class="row">
           <div>
             <div style="font-weight:950; font-size:15px;">Mening ishlarim</div>
-            <div class="tiny">Pending ishlarni tahrirlash va yuborishdan oldin tayyorlash</div>
+            <div class="tiny">Pending ishlarni tahrirlash, autosave va keyin botga yuborish</div>
           </div>
           <span id="workCount" class="badge">0</span>
         </div>
 
-        <div class="pillRow" id="workFilters">
+        <div style="margin-top:12px;">
+          <input id="workSearch" class="input" type="search" placeholder="🔎 Qidirish (matn bo‘yicha)..." />
+        </div>
+
+        <div class="pillRow" id="workFilters" style="margin-top:12px;">
           <div class="pill active" data-filter="pending">🟡 Pending</div>
           <div class="pill" data-filter="sent">🟢 Sent</div>
           <div class="pill" data-filter="all">📚 All</div>
@@ -448,6 +494,10 @@
           <div class="skeleton"></div>
           <div class="skeleton"></div>
         </div>
+
+        <div class="hintLine">
+          <b>Autosave:</b> matn o‘zgarsa 0.8s ichida avtomatik saqlanadi. <span class="kbd">Draft</span> ko‘rsangiz — hali saqlanmagan.
+        </div>
       </div>
 
       <!-- PLANNER VIEW -->
@@ -455,19 +505,19 @@
         <div class="row">
           <div>
             <div style="font-weight:950; font-size:15px;">Task Planner</div>
-            <div class="tiny">Kunlik va haftalik rejani oldindan saqlang, keyin istalgan payt yuboring</div>
+            <div class="tiny">Kunlik/haftalik rejani saqlang, keyin bir tugma bilan yetkazamiz</div>
           </div>
           <span id="planCount" class="badge">0</span>
         </div>
 
-        <div class="split">
+        <div class="split" style="margin-top:12px;">
           <div>
             <div class="mini">Sana</div>
             <input id="planDate" class="input" type="date" />
           </div>
           <div>
             <div class="mini">Reja turi</div>
-            <div class="pillRow" style="margin-top:0;">
+            <div class="pillRow" style="margin-top:8px;">
               <div id="modeDay" class="pill active" data-mode="day">1 kun</div>
               <div id="modeWeek" class="pill" data-mode="week">1 hafta</div>
             </div>
@@ -476,14 +526,14 @@
 
         <div style="margin-top:12px;">
           <div class="mini">Xodim</div>
-          <div id="employeeChips" class="pillRow">
+          <div id="employeeChips" class="pillRow" style="margin-top:8px;">
             <div class="pill">⏳ Yuklanmoqda...</div>
           </div>
         </div>
 
         <div style="margin-top:12px;">
           <div class="mini">Task matni</div>
-          <textarea id="planText" class="input" rows="3" placeholder="Masalan: 🔥 Nurali bilan sverka, ⚡ Inventar to'lovlar, 📌 ClickUp tasklar..."></textarea>
+          <textarea id="planText" class="textarea" rows="3" placeholder="Masalan: 🔥 Inventar, ⚡ Ombor qabul, 📌 ClickUp tasklar..."></textarea>
           <div class="row" style="margin-top:10px;">
             <button id="addPlanBtn" class="btn btnPrimary">➕ Qo‘shish</button>
             <button id="clearPlanBtn" class="btn btnGhost">🧹 Tozalash</button>
@@ -491,14 +541,13 @@
         </div>
 
         <div class="hintLine">
-          • Planner tasklari alohida jadvalga saqlanadi. <br />
-          • <b>Yuborish</b> tugmasi bosilganda bot xodimlarga yetkazadi.
+          • Planner tasklari <b>task_plans</b> jadvalga saqlanadi.<br />
+          • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi (queued → sent).
         </div>
 
-        <div id="planList" class="cards" style="margin-top:12px;">
+        <div id="planList" class="cards">
           <div class="empty">Reja yo‘q. Sana va xodim tanlab, task qo‘shing ✨</div>
         </div>
-
       </div>
 
       <!-- ANALYTICS VIEW -->
@@ -517,7 +566,7 @@
           <div class="pill" data-range="month">📅 Oy</div>
         </div>
 
-        <div id="analyticsList" class="cards" style="margin-top:12px;">
+        <div id="analyticsList" class="cards">
           <div class="skeleton"></div>
           <div class="skeleton"></div>
         </div>
@@ -528,7 +577,6 @@
       </div>
 
     </div>
-
   </div>
 
   <!-- bottom action bar -->
@@ -537,24 +585,50 @@
     <div id="secondaryCta" class="cta">⚙️ Yangilash</div>
   </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="modalOverlay" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modalHead">
+        <div id="modalTitle" class="modalTitle">Tahrirlash</div>
+        <button id="modalClose" class="iconBtn" aria-label="Close">✕</button>
+      </div>
+      <div class="modalBody">
+        <div id="modalHint" class="tiny" style="margin-bottom:10px; opacity:.85;">Yangi matnni kiriting</div>
+        <textarea id="modalInput" class="textarea" rows="4"></textarea>
+      </div>
+      <div class="modalActions">
+        <button id="modalCancel" class="btn btnGhost">Bekor</button>
+        <button id="modalSave" class="btn btnPrimary">Saqlash</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // ================== CONFIG (EDIT THESE IF NEEDED) ==================
     const tg = window.Telegram.WebApp;
-    tg.expand();
-    tg.ready();
+    tg.expand(); tg.ready();
+
     const haptic = tg.HapticFeedback;
 
-    // --- SUPABASE ---
+    // Supabase (hozircha client mode). Prod-hardening uchun keyin /api gateway qo‘shib beramiz.
     const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const userId = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null;
+    const ENABLE_REALTIME = true; // agar Supabase Realtime yoqilgan bo‘lsa — live update bo‘ladi
 
-    // --- UI refs ---
+    // Telegram user
+    const userId = tg?.initDataUnsafe?.user?.id || null;
+
+    // ================== UI REFS ==================
     const subtitleEl = document.getElementById('subtitle');
     const roleBadge = document.getElementById('roleBadge');
 
     const tabs = Array.from(document.querySelectorAll('.tab'));
+    const tabAnalytics = document.getElementById('tab-analytics');
     const views = {
       work: document.getElementById('view-work'),
       planner: document.getElementById('view-planner'),
@@ -562,13 +636,28 @@
     };
 
     const refreshBtn = document.getElementById('refreshBtn');
+    const backToBotBtn = document.getElementById('backToBotBtn');
     const primaryCta = document.getElementById('primaryCta');
     const secondaryCta = document.getElementById('secondaryCta');
+
+    // Toast
+    const toastEl = document.getElementById('toast');
+    let toastTimer = null;
+
+    // Modal
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalTitleEl = document.getElementById('modalTitle');
+    const modalHintEl = document.getElementById('modalHint');
+    const modalInputEl = document.getElementById('modalInput');
+    const modalClose = document.getElementById('modalClose');
+    const modalCancel = document.getElementById('modalCancel');
+    const modalSave = document.getElementById('modalSave');
 
     // Work
     const workCount = document.getElementById('workCount');
     const workList = document.getElementById('workList');
     const workFilters = document.getElementById('workFilters');
+    const workSearch = document.getElementById('workSearch');
 
     // Planner
     const planCount = document.getElementById('planCount');
@@ -578,29 +667,71 @@
     const clearPlanBtn = document.getElementById('clearPlanBtn');
     const employeeChips = document.getElementById('employeeChips');
     const planList = document.getElementById('planList');
+    const modeDay = document.getElementById('modeDay');
+    const modeWeek = document.getElementById('modeWeek');
 
     // Analytics
     const teamCount = document.getElementById('teamCount');
     const analyticsList = document.getElementById('analyticsList');
     const rangeFilters = document.getElementById('rangeFilters');
 
-    // --- state ---
+    // ================== STATE ==================
+    const storageKey = 'uyqur_miniapp_state_v2';
     const state = {
       tab: 'work',
       workFilter: 'pending',
+      workSearch: '',
       planMode: 'day',
       selectedEmployeeId: null,
       employees: [],
       role: 'user',
       range: 'today',
       cache: {
-        plans: [],
-        reports: []
+        work: [],
+        plans: []
+      },
+      workDraft: {
+        dirty: new Set(),
+        timers: new Map(),
+        lastSavedAt: new Map()
       }
     };
 
+    // Restore small prefs
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      if (saved && typeof saved === 'object') {
+        if (saved.workFilter) state.workFilter = saved.workFilter;
+        if (saved.workSearch) state.workSearch = saved.workSearch;
+        if (saved.planMode) state.planMode = saved.planMode;
+        if (saved.selectedEmployeeId) state.selectedEmployeeId = saved.selectedEmployeeId;
+        if (saved.range) state.range = saved.range;
+        if (saved.tab) state.tab = saved.tab;
+      }
+    } catch {}
+
+    function persistState() {
+      const payload = {
+        workFilter: state.workFilter,
+        workSearch: state.workSearch,
+        planMode: state.planMode,
+        selectedEmployeeId: state.selectedEmployeeId,
+        range: state.range,
+        tab: state.tab
+      };
+      try { localStorage.setItem(storageKey, JSON.stringify(payload)); } catch {}
+    }
+
+    // ================== HELPERS ==================
     function todayISO() {
       const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function isoDateFromDate(d) {
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
@@ -611,24 +742,115 @@
       try {
         const d = new Date(iso + 'T00:00:00');
         return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' });
-      } catch {
-        return iso;
-      }
+      } catch { return iso; }
     }
 
-    function setSubtitle(text) {
-      subtitleEl.textContent = text;
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
     }
 
+    function setSubtitle(text) { subtitleEl.textContent = text; }
+
+    function showToast(message, type='ok', ms=1800) {
+      if (!toastEl) return;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastEl.className = 'toast show ' + (type || '');
+      toastEl.textContent = message;
+      toastTimer = setTimeout(() => {
+        toastEl.className = 'toast';
+        toastEl.textContent = '';
+      }, ms);
+    }
+
+    function autoGrowTextarea(el) {
+      if (!el) return;
+      el.style.height = '';
+      el.style.height = (el.scrollHeight + 2) + 'px';
+    }
+
+    function normalize(str){ return String(str || '').toLowerCase().trim(); }
+
+    function getWeekRange(iso) {
+      const base = new Date((iso || todayISO()) + 'T00:00:00');
+      const day = (base.getDay() + 6) % 7; // Monday=0
+      const start = new Date(base);
+      start.setDate(base.getDate() - day);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return { startISO: isoDateFromDate(start), endISO: isoDateFromDate(end) };
+    }
+
+    // ================== MODAL ==================
+    function openModal({ title='Tahrirlash', hint='', value='', placeholder='', saveText='Saqlash' }) {
+      return new Promise((resolve) => {
+        modalTitleEl.textContent = title;
+        modalHintEl.textContent = hint || '';
+        modalInputEl.value = value || '';
+        modalInputEl.placeholder = placeholder || '';
+        modalSave.textContent = saveText;
+
+        modalOverlay.classList.add('show');
+        setTimeout(() => {
+          modalInputEl.focus();
+          autoGrowTextarea(modalInputEl);
+        }, 10);
+
+        let done = false;
+        const close = (result) => {
+          if (done) return;
+          done = true;
+          modalOverlay.classList.remove('show');
+          cleanup();
+          resolve(result);
+        };
+
+        const onKey = (e) => {
+          if (e.key === 'Escape') close(null);
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') close(modalInputEl.value);
+        };
+
+        const cleanup = () => {
+          modalClose.onclick = null;
+          modalCancel.onclick = null;
+          modalSave.onclick = null;
+          modalOverlay.onclick = null;
+          document.removeEventListener('keydown', onKey);
+          modalInputEl.removeEventListener('input', onGrow);
+        };
+
+        const onGrow = () => autoGrowTextarea(modalInputEl);
+
+        modalClose.onclick = () => close(null);
+        modalCancel.onclick = () => close(null);
+        modalSave.onclick = () => close(modalInputEl.value);
+        modalOverlay.onclick = (e) => { if (e.target === modalOverlay) close(null); };
+
+        document.addEventListener('keydown', onKey);
+        modalInputEl.addEventListener('input', onGrow);
+      });
+    }
+
+    // ================== ROLE / TABS ==================
     function showRole(role) {
       roleBadge.classList.remove('hidden');
-      roleBadge.textContent = role.toUpperCase();
-      if (role === 'boss') roleBadge.style.borderColor = 'rgba(255,204,0,0.35)';
-      if (role === 'planner') roleBadge.style.borderColor = 'rgba(78,164,255,0.35)';
+      roleBadge.textContent = String(role).toUpperCase();
+      if (role === 'boss') roleBadge.classList.add('warn');
+      else roleBadge.classList.add('ok');
+    }
+
+    function applyRoleUI() {
+      const isBoss = state.role === 'boss';
+      tabAnalytics.classList.toggle('hidden', !isBoss);
+      if (!isBoss && state.tab === 'analytics') setActiveTab('work');
     }
 
     function setActiveTab(tabKey) {
       state.tab = tabKey;
+      persistState();
+
       tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabKey));
       Object.keys(views).forEach(k => {
         if (k === tabKey) views[k].classList.remove('hidden');
@@ -638,45 +860,40 @@
       if (tabKey === 'work') {
         setSubtitle('Pending ishlarni tartibga keltirish');
         primaryCta.textContent = '🚀 Yuborish';
+        secondaryCta.textContent = '⚙️ Yangilash';
+        primaryCta.setAttribute('aria-disabled', 'false');
       }
       if (tabKey === 'planner') {
-        setSubtitle('Reja tuzish va bir tugma bilan yetkazish');
+        setSubtitle(state.planMode === 'week' ? 'Haftalik reja (grouped)' : 'Kunlik reja (tezkor)');
         primaryCta.textContent = '📤 Rejani yuborish';
+        secondaryCta.textContent = '⚙️ Yangilash';
+        primaryCta.setAttribute('aria-disabled', state.selectedEmployeeId ? 'false' : 'true');
       }
       if (tabKey === 'analytics') {
         setSubtitle('Reja vs natija (team)');
         primaryCta.textContent = '📊 Yangilash';
+        secondaryCta.textContent = '⚙️ Yangilash';
+        primaryCta.setAttribute('aria-disabled', 'false');
       }
     }
 
-    function autoGrowTextarea(el) {
-      if (!el) return;
-      el.style.height = '';
-      el.style.height = el.scrollHeight + 'px';
-    }
-
-    // --- data: roles ---
+    // ================== DATA LOADERS ==================
     async function loadRole() {
-      // app_roles jadvali bo'lsa: telegram_id, role (boss|planner|user)
-      // bo'lmasa: oddiy user bo'lib qoladi.
       try {
         const { data } = await supabaseClient
           .from('app_roles')
           .select('role')
           .eq('telegram_id', userId)
           .maybeSingle();
-
         const role = data && data.role ? String(data.role) : 'user';
         state.role = role;
         if (role !== 'user') showRole(role);
-
-        // Rahbar bo'lmasa ham tab ko'rinadi, lekin ichini bloklaymiz
       } catch {
         state.role = 'user';
       }
+      applyRoleUI();
     }
 
-    // --- data: employees ---
     async function loadEmployees() {
       const { data, error } = await supabaseClient
         .from('users_mapping')
@@ -712,16 +929,21 @@
         chip.className = 'pill' + (emp.id === state.selectedEmployeeId ? ' active' : '');
         chip.textContent = emp.name;
         chip.onclick = () => {
-          haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+          haptic?.impactOccurred?.('light');
           state.selectedEmployeeId = emp.id;
+          persistState();
           renderEmployees();
           loadPlans();
+          setActiveTab('planner');
         };
         employeeChips.appendChild(chip);
       });
+
+      if (state.tab === 'planner') {
+        primaryCta.setAttribute('aria-disabled', state.selectedEmployeeId ? 'false' : 'true');
+      }
     }
 
-    // --- WORK (reports) ---
     async function loadWork() {
       if (!userId) {
         workList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
@@ -742,20 +964,27 @@
       const { data, error } = await q;
 
       if (error) {
-        tg.showAlert('Xatolik: ' + error.message);
+        showToast('Xatolik: ' + error.message, 'bad', 2400);
         return;
       }
 
-      renderWork(data || []);
+      state.cache.work = data || [];
+      renderWork();
     }
 
-    function renderWork(items) {
+    function renderWork() {
+      const q = normalize(state.workSearch);
+      const items = (state.cache.work || []).filter(item => {
+        if (!q) return true;
+        return normalize(item.content).includes(q);
+      });
+
       workCount.textContent = String(items.length);
 
       if (!items.length) {
         workList.innerHTML = `
           <div class="empty">
-            <div style="font-size:40px;">🪐</div>
+            <div style="font-size:42px;">🪐</div>
             Hozircha ma'lumot yo‘q.<br />Botga yozib ko‘ring.
           </div>
         `;
@@ -765,27 +994,48 @@
       workList.innerHTML = '';
 
       items.forEach(item => {
+        const id = item.id;
+        const status = item.status || 'pending';
+        const statusBadge = status === 'sent'
+          ? '<span class="badge ok mini">🟢 SENT</span>'
+          : '<span class="badge warn mini">🟡 PENDING</span>';
+
         const card = document.createElement('div');
         card.className = 'card';
+        card.dataset.id = String(id);
 
         card.innerHTML = `
-          <textarea class="textarea" id="work-${item.id}" rows="1">${escapeHtml(item.content || '')}</textarea>
+          <div class="cardHeader">
+            <div class="cardTitle">🧩 Ish #${id}</div>
+            <div class="cardMeta">
+              ${statusBadge}
+              <span class="badge mini" data-save-state="saved">✓ Saved</span>
+            </div>
+          </div>
+
+          <textarea class="textarea" id="work-${id}" rows="1">${escapeHtml(item.content || '')}</textarea>
+
           <div class="cardFooter">
-            <button class="btn btnDanger" data-del="${item.id}">🗑️ O‘chirish</button>
-            <button class="btn btnPrimary" data-save="${item.id}">💾 Saqlash</button>
+            <button class="btn btnDanger" data-del="${id}">🗑️ O‘chirish</button>
+            <button class="btn btnPrimary" data-save="${id}">💾 Saqlash</button>
           </div>
         `;
 
         workList.appendChild(card);
-        const ta = document.getElementById(`work-${item.id}`);
+
+        const ta = document.getElementById(`work-${id}`);
         autoGrowTextarea(ta);
-        ta.addEventListener('input', () => autoGrowTextarea(ta));
+        ta.addEventListener('input', () => {
+          autoGrowTextarea(ta);
+          markWorkDirty(id);
+          scheduleWorkAutosave(id);
+        });
       });
 
       workList.querySelectorAll('[data-save]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.getAttribute('data-save');
-          await updateReport(id);
+          await updateReport(id, { silent: false, force: true });
         });
       });
 
@@ -797,12 +1047,53 @@
       });
     }
 
-    async function updateReport(id) {
+    function setWorkSaveBadge(id, mode) {
+      const card = workList.querySelector(`.card[data-id="${id}"]`);
+      const badge = card?.querySelector('[data-save-state]');
+      if (!badge) return;
+
+      if (mode === 'dirty') {
+        badge.className = 'badge mini warn';
+        badge.textContent = '● Draft';
+      } else if (mode === 'saving') {
+        badge.className = 'badge mini';
+        badge.textContent = '… Saving';
+      } else if (mode === 'saved') {
+        badge.className = 'badge mini ok';
+        badge.textContent = '✓ Saved';
+      } else if (mode === 'error') {
+        badge.className = 'badge mini bad';
+        badge.textContent = '⚠ Error';
+      }
+    }
+
+    function markWorkDirty(id) {
+      state.workDraft.dirty.add(String(id));
+      setWorkSaveBadge(id, 'dirty');
+    }
+
+    function scheduleWorkAutosave(id) {
+      const key = String(id);
+      if (state.workDraft.timers.has(key)) clearTimeout(state.workDraft.timers.get(key));
+
+      const timer = setTimeout(async () => {
+        await updateReport(id, { silent: true, force: false });
+      }, 800);
+
+      state.workDraft.timers.set(key, timer);
+    }
+
+    async function updateReport(id, { silent = true, force = false } = {}) {
       const el = document.getElementById(`work-${id}`);
       if (!el) return;
-      const content = el.value;
 
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      const content = el.value;
+      const key = String(id);
+
+      if (!force && !state.workDraft.dirty.has(key)) return;
+
+      setWorkSaveBadge(id, 'saving');
+      haptic?.impactOccurred?.('light');
 
       const { error } = await supabaseClient
         .from('reports')
@@ -810,16 +1101,21 @@
         .eq('id', id);
 
       if (error) {
-        tg.showAlert('Saqlanmadi: ' + error.message);
+        setWorkSaveBadge(id, 'error');
+        if (!silent) showToast('Saqlanmadi: ' + error.message, 'bad', 2600);
         return;
       }
 
-      haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
-      tg.showPopup({ title: '✅ Saqlandi', message: 'O‘zgarishlar saqlandi', buttons: [{ type: 'ok' }] });
+      state.workDraft.dirty.delete(key);
+      state.workDraft.lastSavedAt.set(key, Date.now());
+
+      setWorkSaveBadge(id, 'saved');
+      if (!silent) showToast('✅ Saqlandi', 'ok', 1200);
+      haptic?.notificationOccurred?.('success');
     }
 
     async function deleteReport(id) {
-      haptic && haptic.impactOccurred && haptic.impactOccurred('medium');
+      haptic?.impactOccurred?.('medium');
 
       tg.showConfirm("Ushbu ishni o'chirmoqchimisiz?", async ok => {
         if (!ok) return;
@@ -830,18 +1126,16 @@
           .eq('id', id);
 
         if (error) {
-          tg.showAlert('O‘chirilmadi: ' + error.message);
+          showToast('O‘chmadi: ' + error.message, 'bad', 2600);
           return;
         }
 
-        haptic && haptic.notificationOccurred && haptic.notificationOccurred('warning');
+        showToast('🗑️ O‘chirildi', 'ok', 1200);
         loadWork();
       });
     }
 
-    // --- PLANNER ---
     async function loadPlans() {
-      // task_plans jadvali: id, creator_id, assignee_tg_id, task_text, plan_date, status
       if (!userId) {
         planList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
         return;
@@ -854,13 +1148,22 @@
       const date = planDate.value || todayISO();
       planList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
 
-      const { data, error } = await supabaseClient
+      let q = supabaseClient
         .from('task_plans')
         .select('*')
         .eq('creator_id', userId)
         .eq('assignee_tg_id', state.selectedEmployeeId)
-        .eq('plan_date', date)
+        .order('plan_date', { ascending: true })
         .order('created_at', { ascending: true });
+
+      if (state.planMode === 'day') {
+        q = q.eq('plan_date', date);
+      } else {
+        const { startISO, endISO } = getWeekRange(date);
+        q = q.gte('plan_date', startISO).lte('plan_date', endISO);
+      }
+
+      const { data, error } = await q;
 
       if (error) {
         planList.innerHTML = '<div class="empty">Planner jadvali yo\'q yoki xatolik</div>';
@@ -868,11 +1171,19 @@
       }
 
       const items = data || [];
+      state.cache.plans = items;
       planCount.textContent = String(items.length);
-      renderPlans(items);
+      renderPlans();
     }
 
-    function renderPlans(items) {
+    function planStatusBadge(status) {
+      if (status === 'sent') return '<span class="badge mini ok">🟢 Yuborilgan</span>';
+      if (status === 'queued') return '<span class="badge mini warn">🟡 Navbatda</span>';
+      return '<span class="badge mini">🟣 Draft</span>';
+    }
+
+    function renderPlans() {
+      const items = state.cache.plans || [];
       if (!items.length) {
         planList.innerHTML = '<div class="empty">Reja yo\'q. Task qo\'shing ✨</div>';
         return;
@@ -880,25 +1191,25 @@
 
       planList.innerHTML = '';
 
-      items.forEach(p => {
-        const card = document.createElement('div');
-        card.className = 'card';
+      if (state.planMode === 'week') {
+        const groups = {};
+        items.forEach(p => {
+          const d = p.plan_date || todayISO();
+          if (!groups[d]) groups[d] = [];
+          groups[d].push(p);
+        });
 
-        const statusLabel = p.status === 'sent' ? '🟢 yuborilgan' : (p.status === 'queued' ? '🟡 navbatda' : '🟣 draft');
+        Object.keys(groups).sort().forEach(date => {
+          const header = document.createElement('div');
+          header.className = 'hintLine';
+          header.innerHTML = `<b>📅 ${escapeHtml(formatNiceDate(date))}</b> — ${groups[date].length} ta`;
+          planList.appendChild(header);
 
-        card.innerHTML = `
-          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
-            <div style="font-weight:900; line-height:1.35;">${escapeHtml(p.task_text || '')}</div>
-            <div class="badge" style="font-size:11px;">${statusLabel}</div>
-          </div>
-          <div class="cardFooter">
-            <button class="btn btnDanger" data-pdel="${p.id}">🗑️</button>
-            <button class="btn btnGhost" data-pedit="${p.id}">✏️ Edit</button>
-          </div>
-        `;
-
-        planList.appendChild(card);
-      });
+          groups[date].forEach(p => planList.appendChild(buildPlanCard(p)));
+        });
+      } else {
+        items.forEach(p => planList.appendChild(buildPlanCard(p)));
+      }
 
       planList.querySelectorAll('[data-pdel]').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -915,25 +1226,47 @@
       });
     }
 
+    function buildPlanCard(p) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="cardHeader" style="margin-bottom:8px;">
+          <div class="cardTitle">📌 Task</div>
+          <div class="cardMeta">${planStatusBadge(p.status)}</div>
+        </div>
+
+        <div style="font-weight:900; line-height:1.45; font-size:14px;">
+          ${escapeHtml(p.task_text || '')}
+        </div>
+
+        <div class="cardFooter" style="margin-top:12px;">
+          <button class="btn btnDanger" data-pdel="${p.id}">🗑️</button>
+          <button class="btn btnGhost" data-pedit="${p.id}">✏️ Edit</button>
+        </div>
+      `;
+      return card;
+    }
+
     async function addPlan() {
       if (!userId) return;
       const date = planDate.value || todayISO();
       const text = (planText.value || '').trim();
+
       if (!text) {
-        haptic && haptic.notificationOccurred && haptic.notificationOccurred('error');
-        tg.showAlert('Task matnini yozing');
+        haptic?.notificationOccurred?.('error');
+        showToast('Task matnini yozing', 'warn', 1800);
         return;
       }
       if (!state.selectedEmployeeId) {
-        tg.showAlert('Xodim tanlanmagan');
+        showToast('Xodim tanlanmagan', 'warn', 1800);
         return;
       }
 
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+      haptic?.impactOccurred?.('light');
 
       const { error } = await supabaseClient
         .from('task_plans')
-        .insert([{ 
+        .insert([{
           creator_id: userId,
           assignee_tg_id: state.selectedEmployeeId,
           task_text: text,
@@ -942,17 +1275,19 @@
         }]);
 
       if (error) {
-        tg.showAlert('Qo‘shilmadi: ' + error.message);
+        showToast('Qo‘shilmadi: ' + error.message, 'bad', 2600);
         return;
       }
 
       planText.value = '';
-      haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
+      autoGrowTextarea(planText);
+      haptic?.notificationOccurred?.('success');
+      showToast('➕ Qo‘shildi', 'ok', 1200);
       loadPlans();
     }
 
     async function deletePlan(id) {
-      haptic && haptic.impactOccurred && haptic.impactOccurred('medium');
+      haptic?.impactOccurred?.('medium');
       tg.showConfirm("Taskni o'chirmoqchimisiz?", async ok => {
         if (!ok) return;
 
@@ -963,83 +1298,104 @@
           .eq('creator_id', userId);
 
         if (error) {
-          tg.showAlert('O‘chirilmadi: ' + error.message);
+          showToast('O‘chmadi: ' + error.message, 'bad', 2600);
           return;
         }
 
-        haptic && haptic.notificationOccurred && haptic.notificationOccurred('warning');
+        showToast('🗑️ O‘chirildi', 'ok', 1200);
         loadPlans();
       });
     }
 
     async function editPlan(id) {
-      // quick inline edit via popup
-      const { data } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from('task_plans')
         .select('task_text')
         .eq('id', id)
         .maybeSingle();
 
-      const current = data && data.task_text ? data.task_text : '';
+      if (error) {
+        showToast('Xatolik: ' + error.message, 'bad', 2600);
+        return;
+      }
 
-      tg.showPopup({
+      const current = data?.task_text || '';
+
+      const newText = await openModal({
         title: 'Taskni tahrirlash',
-        message: 'Yangi matnni yozing (keyin OK)',
-        buttons: [
-          { id: 'ok', type: 'ok', text: 'OK' },
-          { id: 'cancel', type: 'cancel', text: 'Bekor' }
-        ]
-      }, async (btnId) => {
-        if (btnId !== 'ok') return;
-        const newText = prompt('Task matni:', current);
-        if (!newText || !newText.trim()) return;
-
-        const { error } = await supabaseClient
-          .from('task_plans')
-          .update({ task_text: newText.trim() })
-          .eq('id', id)
-          .eq('creator_id', userId);
-
-        if (error) {
-          tg.showAlert('Saqlanmadi: ' + error.message);
-          return;
-        }
-
-        haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
-        loadPlans();
+        hint: 'Ctrl/Cmd + Enter — Saqlash',
+        value: current,
+        placeholder: 'Task matnini yozing...'
       });
+
+      if (newText === null) return;
+      if (!String(newText).trim()) {
+        showToast('Bo‘sh matn saqlanmaydi', 'warn', 1600);
+        return;
+      }
+
+      const { error: uerr } = await supabaseClient
+        .from('task_plans')
+        .update({ task_text: String(newText).trim() })
+        .eq('id', id)
+        .eq('creator_id', userId);
+
+      if (uerr) {
+        showToast('Saqlanmadi: ' + uerr.message, 'bad', 2600);
+        return;
+      }
+
+      showToast('✅ Saqlandi', 'ok', 1200);
+      loadPlans();
     }
 
     async function dispatchPlans() {
-      // Bu joyda eng oson variant: WebApp -> Botga data yuborish.
-      // Bot web_app_data update orqali tasklarni xodimlarga yuboradi.
-      // Payload: type=dispatch_plans, date=YYYY-MM-DD, mode=day|week
-
       const date = planDate.value || todayISO();
       if (!userId) return;
+      if (!state.selectedEmployeeId && state.planMode === 'day') {
+        showToast('Xodim tanlanmagan', 'warn', 1800);
+        return;
+      }
 
-      const { data, error } = await supabaseClient
+      let start = date, end = date;
+      if (state.planMode === 'week') {
+        const r = getWeekRange(date);
+        start = r.startISO;
+        end = r.endISO;
+      }
+
+      let q = supabaseClient
         .from('task_plans')
         .select('*')
         .eq('creator_id', userId)
-        .eq('plan_date', date)
         .in('status', ['draft', 'queued']);
 
+      if (state.planMode === 'day') {
+        q = q.eq('assignee_tg_id', state.selectedEmployeeId).eq('plan_date', date);
+      } else {
+        q = q.eq('assignee_tg_id', state.selectedEmployeeId).gte('plan_date', start).lte('plan_date', end);
+      }
+
+      const { data, error } = await q;
+
       if (error) {
-        tg.showAlert('Xatolik: ' + error.message);
+        showToast('Xatolik: ' + error.message, 'bad', 2600);
         return;
       }
 
       const items = data || [];
       if (!items.length) {
-        tg.showAlert('Yuborish uchun draft task yo‘q');
+        showToast('Yuborish uchun draft task yo‘q', 'warn', 2000);
         return;
       }
 
-      tg.showConfirm(`📤 ${formatNiceDate(date)} rejasini xodimlarga yuboramizmi?`, async ok => {
+      const label = state.planMode === 'week'
+        ? `📤 ${formatNiceDate(start)} — ${formatNiceDate(end)} rejasini yuboramizmi?`
+        : `📤 ${formatNiceDate(date)} rejasini yuboramizmi?`;
+
+      tg.showConfirm(label, async ok => {
         if (!ok) return;
 
-        // 1) DB status -> queued
         const ids = items.map(x => x.id);
         await supabaseClient
           .from('task_plans')
@@ -1047,300 +1403,294 @@
           .in('id', ids)
           .eq('creator_id', userId);
 
-        // 2) Botga signal
         try {
           tg.sendData(JSON.stringify({
             type: 'dispatch_plans',
+            mode: state.planMode,
+            employee_id: state.selectedEmployeeId,
             date,
-            mode: state.planMode
+            start_date: start,
+            end_date: end
           }));
-
-          haptic && haptic.notificationOccurred && haptic.notificationOccurred('success');
-          tg.showPopup({ title: '✅ Navbatga qo‘yildi', message: 'Bot xodimlarga yuborishni boshlaydi', buttons: [{ type: 'ok' }] });
+          haptic?.notificationOccurred?.('success');
+          showToast('✅ Navbatga qo‘yildi', 'ok', 1600);
         } catch {
-          tg.showAlert('Botga data yuborilmadi');
+          showToast('Botga data yuborilmadi', 'bad', 2400);
         }
 
         loadPlans();
       });
     }
 
-    // --- ANALYTICS ---
+    async function dispatchReports() {
+      if (!userId) return;
+
+      const dirty = Array.from(state.workDraft.dirty);
+      if (dirty.length) {
+        tg.showConfirm(`Sizda ${dirty.length} ta Draft bor. Avval saqlaymizmi?`, async ok => {
+          if (!ok) return;
+          for (const id of dirty) await updateReport(id, { silent: true, force: true });
+          await dispatchReports();
+        });
+        return;
+      }
+
+      tg.showConfirm("Pending ishlarni botga yuboramizmi?", async ok => {
+        if (!ok) return;
+
+        try {
+          tg.sendData(JSON.stringify({
+            type: 'dispatch_reports',
+            filter: state.workFilter,
+            search: state.workSearch || ''
+          }));
+          showToast('🚀 Botga yuborildi (signal)', 'ok', 1600);
+        } catch {
+          showToast('Botga data yuborilmadi', 'bad', 2400);
+        }
+      });
+    }
+
+    // ================== ANALYTICS ==================
     function getRangeDates() {
       const now = new Date();
       const start = new Date(now);
       const end = new Date(now);
 
-      if (state.range === 'today') {
-        // same day
-      }
-
       if (state.range === 'week') {
         const day = (now.getDay() + 6) % 7;
         start.setDate(now.getDate() - day);
       }
-
       if (state.range === 'month') {
         start.setDate(1);
       }
 
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
-
       return { start, end };
     }
 
-    function isoDateFromDate(d) {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
     async function loadAnalytics() {
-      // Boss bo'lmasa: ogohlantiramiz
-      if (state.role !== 'boss') {
-        analyticsList.innerHTML = '<div class="empty">Bu bo‘lim faqat rahbar uchun 🔒</div>';
-        teamCount.textContent = '0';
-        return;
-      }
+      if (state.role !== 'boss') return;
 
-      analyticsList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      analyticsList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
 
       const { start, end } = getRangeDates();
-      const startIso = isoDateFromDate(start);
-      const endIso = isoDateFromDate(end);
+      const startISO = isoDateFromDate(start);
+      const endISO = isoDateFromDate(end);
 
-      // 1) Plans
-      const plansRes = await supabaseClient
+      const { data: plans } = await supabaseClient
         .from('task_plans')
-        .select('assignee_tg_id, plan_date, status')
-        .gte('plan_date', startIso)
-        .lte('plan_date', endIso);
+        .select('*')
+        .gte('plan_date', startISO)
+        .lte('plan_date', endISO);
 
-      // 2) Reports (sent)
-      const repRes = await supabaseClient
+      const { data: reps } = await supabaseClient
         .from('reports')
-        .select('user_id, created_at, status')
-        .eq('status', 'sent')
+        .select('*')
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
-      if (plansRes.error || repRes.error) {
-        analyticsList.innerHTML = '<div class="empty">Statistika yuklanmadi</div>';
-        return;
-      }
+      const employees = state.employees || [];
+      teamCount.textContent = String(employees.length);
 
-      const plans = plansRes.data || [];
-      const reps = repRes.data || [];
-
-      // build maps
-      const plannedByUser = new Map();
-      plans.forEach(p => {
-        const uid = Number(p.assignee_tg_id);
-        plannedByUser.set(uid, (plannedByUser.get(uid) || 0) + 1);
+      const planBy = {};
+      (plans || []).forEach(p => {
+        const k = String(p.assignee_tg_id || '');
+        if (!planBy[k]) planBy[k] = { total: 0, sent: 0, queued: 0, draft: 0 };
+        planBy[k].total++;
+        if (p.status === 'sent') planBy[k].sent++;
+        else if (p.status === 'queued') planBy[k].queued++;
+        else planBy[k].draft++;
       });
 
-      const doneByUser = new Map();
-      reps.forEach(r => {
-        const uid = Number(r.user_id);
-        doneByUser.set(uid, (doneByUser.get(uid) || 0) + 1);
+      const repBy = {};
+      (reps || []).forEach(r => {
+        const k = String(r.user_id || '');
+        if (!repBy[k]) repBy[k] = { total: 0, sent: 0, pending: 0 };
+        repBy[k].total++;
+        if (r.status === 'sent') repBy[k].sent++;
+        else repBy[k].pending++;
       });
-
-      // render employees
-      const emps = state.employees || [];
-      teamCount.textContent = String(emps.length);
-
-      if (!emps.length) {
-        analyticsList.innerHTML = '<div class="empty">Xodimlar yo‘q. /bind orqali bog‘lang</div>';
-        return;
-      }
 
       analyticsList.innerHTML = '';
+      if (!employees.length) {
+        analyticsList.innerHTML = '<div class="empty">Xodimlar yo‘q</div>';
+        return;
+      }
 
-      emps.forEach(emp => {
-        const planned = plannedByUser.get(emp.id) || 0;
-        const done = doneByUser.get(emp.id) || 0;
-        const pct = planned <= 0 ? (done > 0 ? 100 : 0) : Math.min(100, Math.round((done / planned) * 100));
-        const extra = Math.max(0, done - planned);
+      employees.forEach(emp => {
+        const k = String(emp.id);
+        const p = planBy[k] || { total: 0, sent: 0, queued: 0, draft: 0 };
+        const r = repBy[k] || { total: 0, sent: 0, pending: 0 };
 
         const card = document.createElement('div');
         card.className = 'card';
-
         card.innerHTML = `
-          <div class="row">
-            <div style="font-weight:950;">${escapeHtml(emp.name)}</div>
-            <div class="badge">${pct}%</div>
-          </div>
-
-          <div class="kpiGrid">
-            <div class="kpi">
-              <div class="num">${planned}</div>
-              <div class="lbl">Reja task</div>
-            </div>
-            <div class="kpi">
-              <div class="num">${done}</div>
-              <div class="lbl">Bajarilgan</div>
-            </div>
-            <div class="kpi">
-              <div class="num">${extra}</div>
-              <div class="lbl">Ortiqcha</div>
+          <div class="cardHeader">
+            <div class="cardTitle">👤 ${escapeHtml(emp.name)}</div>
+            <div class="cardMeta">
+              <span class="badge mini">Plans: ${p.total}</span>
+              <span class="badge mini ok">Sent: ${p.sent}</span>
             </div>
           </div>
 
-          <div class="progressWrap">
-            <div class="progress" style="width:${pct}%;"></div>
+          <div class="tiny" style="margin-top:6px;">
+            Planner: 🟣 Draft ${p.draft} · 🟡 Queued ${p.queued} · 🟢 Sent ${p.sent}<br/>
+            Ishlar: 🟡 Pending ${r.pending} · 🟢 Sent ${r.sent}
           </div>
-
-          <div class="tiny">${rangeLabel()} • Reja: ${planned} ta, Natija: ${done} ta</div>
         `;
-
         analyticsList.appendChild(card);
       });
     }
 
-    function rangeLabel() {
-      if (state.range === 'today') return 'Bugun';
-      if (state.range === 'week') return 'Bu hafta';
-      return 'Bu oy';
-    }
-
-    // --- helpers ---
-    function escapeHtml(str) {
-      return String(str)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-    }
-
-    // --- events ---
+    // ================== EVENTS ==================
     tabs.forEach(t => {
       t.addEventListener('click', () => {
         const key = t.dataset.tab;
-        haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+        if (key === 'analytics' && state.role !== 'boss') return;
         setActiveTab(key);
-        smartRefresh();
+        refreshActiveTab();
       });
     });
 
-    refreshBtn.addEventListener('click', () => {
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
-      smartRefresh();
+    refreshBtn.addEventListener('click', () => refreshActiveTab());
+    secondaryCta.addEventListener('click', () => refreshActiveTab());
+
+    backToBotBtn.addEventListener('click', () => {
+      haptic?.impactOccurred?.('light');
+      tg.close();
     });
 
-    secondaryCta.addEventListener('click', () => {
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
-      smartRefresh();
-    });
-
-    primaryCta.addEventListener('click', async () => {
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
-
-      if (state.tab === 'work') {
-        // User botdagi /send funksiyasini ishlatishi kerak
-        tg.showPopup({
-          title: '🚀 Yuborish',
-          message: 'Hisobotni yuborish uchun botda /send buyrug‘ini bering. Bu mini app tahrirlash uchun.',
-          buttons: [{ type: 'ok' }]
-        });
-        return;
-      }
-
-      if (state.tab === 'planner') {
-        await dispatchPlans();
-        return;
-      }
-
-      if (state.tab === 'analytics') {
-        await loadAnalytics();
-        return;
-      }
-    });
-
-    workFilters.addEventListener('click', (e) => {
-      const el = e.target;
-      if (!el.classList.contains('pill')) return;
-      const f = el.dataset.filter;
-      state.workFilter = f;
-      Array.from(workFilters.querySelectorAll('.pill')).forEach(p => p.classList.toggle('active', p.dataset.filter === f));
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
-      loadWork();
-    });
-
-    Array.from(document.querySelectorAll('[data-mode]')).forEach(p => {
+    workFilters.querySelectorAll('.pill').forEach(p => {
       p.addEventListener('click', () => {
-        state.planMode = p.dataset.mode;
-        Array.from(document.querySelectorAll('[data-mode]')).forEach(x => x.classList.toggle('active', x.dataset.mode === state.planMode));
-        haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+        workFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+        p.classList.add('active');
+        state.workFilter = p.dataset.filter;
+        persistState();
+        loadWork();
       });
     });
 
-    rangeFilters.addEventListener('click', (e) => {
-      const el = e.target;
-      if (!el.classList.contains('pill')) return;
-      const r = el.dataset.range;
-      state.range = r;
-      Array.from(rangeFilters.querySelectorAll('.pill')).forEach(p => p.classList.toggle('active', p.dataset.range === r));
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
-      loadAnalytics();
+    workSearch.value = state.workSearch || '';
+    workSearch.addEventListener('input', () => {
+      state.workSearch = workSearch.value || '';
+      persistState();
+      renderWork();
     });
 
-    addPlanBtn.addEventListener('click', addPlan);
+    planDate.value = planDate.value || todayISO();
+    planText.addEventListener('input', () => autoGrowTextarea(planText));
+    autoGrowTextarea(planText);
 
-    clearPlanBtn.addEventListener('click', () => {
-      planText.value = '';
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
-    });
-
-    planDate.addEventListener('change', () => {
-      haptic && haptic.impactOccurred && haptic.impactOccurred('light');
+    modeDay.addEventListener('click', () => {
+      state.planMode = 'day';
+      persistState();
+      modeDay.classList.add('active');
+      modeWeek.classList.remove('active');
+      setActiveTab('planner');
       loadPlans();
     });
 
-    function smartRefresh() {
-      if (state.tab === 'work') loadWork();
-      if (state.tab === 'planner') loadPlans();
-      if (state.tab === 'analytics') loadAnalytics();
+    modeWeek.addEventListener('click', () => {
+      state.planMode = 'week';
+      persistState();
+      modeWeek.classList.add('active');
+      modeDay.classList.remove('active');
+      setActiveTab('planner');
+      loadPlans();
+    });
+
+    if (state.planMode === 'week') {
+      modeWeek.classList.add('active'); modeDay.classList.remove('active');
+    } else {
+      modeDay.classList.add('active'); modeWeek.classList.remove('active');
     }
 
-    // --- init ---
-    async function init() {
-      if (!userId) {
-        tg.showAlert('Telegram user topilmadi (initData error)');
-        return;
-      }
+    planDate.addEventListener('change', () => loadPlans());
 
-      planDate.value = todayISO();
+    addPlanBtn.addEventListener('click', addPlan);
+    clearPlanBtn.addEventListener('click', () => {
+      planText.value = '';
+      autoGrowTextarea(planText);
+      showToast('🧹 Tozalandi', 'ok', 1000);
+    });
+
+    rangeFilters.querySelectorAll('.pill').forEach(p => {
+      p.addEventListener('click', () => {
+        rangeFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+        p.classList.add('active');
+        state.range = p.dataset.range;
+        persistState();
+        loadAnalytics();
+      });
+    });
+
+    primaryCta.addEventListener('click', async () => {
+      const disabled = primaryCta.getAttribute('aria-disabled') === 'true';
+      if (disabled) return;
+
+      if (state.tab === 'work') return dispatchReports();
+      if (state.tab === 'planner') return dispatchPlans();
+      if (state.tab === 'analytics') return loadAnalytics();
+    });
+
+    function refreshActiveTab() {
+      if (state.tab === 'work') return loadWork();
+      if (state.tab === 'planner') return loadPlans();
+      if (state.tab === 'analytics') return loadAnalytics();
+    }
+
+    // ================== REALTIME (OPTIONAL) ==================
+    function setupRealtime() {
+      if (!ENABLE_REALTIME) return;
+      if (!supabaseClient?.channel) return;
+
+      let t = null;
+      const softRefresh = () => {
+        if (t) return;
+        t = setTimeout(() => { t = null; refreshActiveTab(); }, 700);
+      };
+
+      try {
+        supabaseClient
+          .channel('miniapp-reports-' + String(userId))
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'reports',
+            filter: 'user_id=eq.' + String(userId)
+          }, () => softRefresh())
+          .subscribe();
+
+        supabaseClient
+          .channel('miniapp-plans-' + String(userId))
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'task_plans',
+            filter: 'creator_id=eq.' + String(userId)
+          }, () => softRefresh())
+          .subscribe();
+      } catch {}
+    }
+
+    // ================== INIT ==================
+    async function init() {
+      if (!userId) showToast('Telegram user topilmadi', 'bad', 2500);
+
+      workFilters.querySelectorAll('.pill').forEach(x => x.classList.toggle('active', x.dataset.filter === state.workFilter));
 
       await loadRole();
       await loadEmployees();
-      await loadWork();
 
-      // Planner uchun ham start
-      await loadPlans();
+      setActiveTab(state.tab === 'analytics' && state.role !== 'boss' ? 'work' : state.tab);
 
-      // Boss bo'lsa analytics ham start
-      if (state.role === 'boss') await loadAnalytics();
+      loadWork();
+      loadPlans();
+      if (state.role === 'boss') loadAnalytics();
 
-      // Default subtitl
-      setSubtitle('Pending ishlarni tartibga keltirish');
-
-      // Boss bo'lmasa, Analytics tabni bosganda bloklaymiz (UX)
-      tabs.forEach(t => {
-        if (t.dataset.tab === 'analytics') {
-          t.addEventListener('click', () => {
-            if (state.role !== 'boss') {
-              tg.showPopup({
-                title: '🔒 Rahbar bo‘limi',
-                message: 'Bu bo‘lim faqat rahbar uchun ochiq. Admin app_roles jadvalida rol beradi.',
-                buttons: [{ type: 'ok' }]
-              });
-            }
-          });
-        }
-      });
-
-      // Planner bo'lmasa ham ishlasin (hozircha), keyin rol bilan cheklasa bo'ladi
+      setupRealtime();
     }
 
     init();
