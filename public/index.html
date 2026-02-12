@@ -3,13 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b0f14" />
   <title>Uyqur Yordamchi</title>
+
+
+  <script>
+    // Pre-paint theme (outside Telegram too)
+    (() => {
+      try {
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+      } catch {}
+    })();
+  </script>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    :root{
+        :root{
+      /* Theme follows: Telegram theme (if any) → system theme (prefers-color-scheme) */
+      color-scheme: dark;
+
+      /* Telegram palette (with solid fallbacks) */
       --tg-bg: var(--tg-theme-bg-color, #0b0f14);
       --tg-text: var(--tg-theme-text-color, #e9eef7);
       --tg-hint: var(--tg-theme-hint-color, #8b94a7);
@@ -18,11 +34,51 @@
       --tg-button-text: var(--tg-theme-button-text-color, #0b0f14);
       --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #101722);
 
-      --card: rgba(255,255,255,.06);
-      --card-2: rgba(255,255,255,.08);
-      --border: rgba(255,255,255,.12);
-      --shadow: 0 14px 40px rgba(0,0,0,.35);
+      /* Accent (overridden from Telegram via JS when possible) */
+      --accent: var(--tg-button);
+      --accent-rgb: 78 164 255;
 
+      /* Surfaces */
+      --surface-00: rgba(255,255,255,.03);
+      --surface-0: rgba(255,255,255,.04);
+      --surface: rgba(255,255,255,.06);
+      --surface-2: rgba(255,255,255,.08);
+
+      --card: rgba(255,255,255,.05);
+
+      /* Borders & shadows */
+      --border-soft: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.10);
+      --border-strong: rgba(255,255,255,.12);
+
+      --shadow: 0 14px 40px rgba(0,0,0,.35);
+      --shadow-raise: 0 18px 40px rgba(0,0,0,.45);
+      --shadow-xl: 0 22px 60px rgba(0,0,0,.55);
+
+      /* Text opacities */
+      --fg-95: rgba(255,255,255,.95);
+      --fg-92: rgba(255,255,255,.92);
+      --fg-88: rgba(255,255,255,.88);
+      --fg-86: rgba(255,255,255,.86);
+      --fg-85: rgba(255,255,255,.85);
+      --fg-55: rgba(255,255,255,.55);
+      --fg-35: rgba(255,255,255,.35);
+
+      /* Overlay / elevated */
+      --elevated-bg: rgba(16, 23, 34, .96);
+      --overlay: rgba(0,0,0,.55);
+
+      /* Gradients */
+      --topbar-grad-1: rgba(0,0,0,.35);
+      --topbar-grad-2: rgba(0,0,0,0);
+      --bottom-grad-1: rgba(0,0,0,0);
+      --bottom-grad-2: rgba(0,0,0,.50);
+
+      /* Skeleton */
+      --skeleton-a: rgba(255,255,255,.04);
+      --skeleton-b: rgba(255,255,255,.08);
+
+      /* Layout */
       --radius: 18px;
       --radius-lg: 22px;
 
@@ -41,6 +97,55 @@
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
+
+    :root[data-theme="light"]{
+      color-scheme: light;
+
+      --tg-bg: var(--tg-theme-bg-color, #f6f7fb);
+      --tg-text: var(--tg-theme-text-color, #0b1320);
+      --tg-hint: var(--tg-theme-hint-color, #667085);
+      --tg-link: var(--tg-theme-link-color, #0b69ff);
+      --tg-button: var(--tg-theme-button-color, #0b69ff);
+      --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+      --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+
+      --accent: var(--tg-button);
+
+      --surface-00: rgba(11, 19, 32, .02);
+      --surface-0: rgba(11, 19, 32, .03);
+      --surface: rgba(11, 19, 32, .04);
+      --surface-2: rgba(11, 19, 32, .06);
+
+      --card: rgba(11, 19, 32, .03);
+
+      --border-soft: rgba(11, 19, 32, .08);
+      --border: rgba(11, 19, 32, .10);
+      --border-strong: rgba(11, 19, 32, .12);
+
+      --shadow: 0 14px 40px rgba(11, 19, 32, .10);
+      --shadow-raise: 0 18px 40px rgba(11, 19, 32, .14);
+      --shadow-xl: 0 22px 60px rgba(11, 19, 32, .18);
+
+      --fg-95: rgba(11, 19, 32, .95);
+      --fg-92: rgba(11, 19, 32, .92);
+      --fg-88: rgba(11, 19, 32, .88);
+      --fg-86: rgba(11, 19, 32, .86);
+      --fg-85: rgba(11, 19, 32, .85);
+      --fg-55: rgba(11, 19, 32, .55);
+      --fg-35: rgba(11, 19, 32, .35);
+
+      --elevated-bg: rgba(255,255,255,.96);
+      --overlay: rgba(11, 19, 32, .40);
+
+      --topbar-grad-1: rgba(255,255,255,.80);
+      --topbar-grad-2: rgba(255,255,255,0);
+      --bottom-grad-1: rgba(255,255,255,0);
+      --bottom-grad-2: rgba(255,255,255,.78);
+
+      --skeleton-a: rgba(11, 19, 32, .04);
+      --skeleton-b: rgba(11, 19, 32, .08);
+    }
+
 
     *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body{ height: 100%; }
@@ -62,9 +167,9 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,0)) , var(--tg-bg);
+      background: linear-gradient(180deg, var(--topbar-grad-1), var(--topbar-grad-2)) , var(--tg-bg);
       backdrop-filter: blur(14px);
-      border-bottom: 1px solid rgba(255,255,255,.06);
+      border-bottom: 1px solid var(--border-soft);
       padding: 12px var(--pad);
       display: flex;
       align-items: center;
@@ -104,8 +209,8 @@
       width: 38px;
       height: 38px;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      background: var(--surface);
       color: var(--tg-text);
       display:flex;
       align-items:center;
@@ -120,8 +225,8 @@
       gap: 6px;
       padding: 5px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
       color: var(--tg-text);
       font-size: 11px;
       font-weight: 800;
@@ -143,18 +248,18 @@
       text-align:center;
       padding: 10px 10px;
       border-radius: 14px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
+      background: var(--card);
+      border: 1px solid var(--border-soft);
       font-weight: 900;
       font-size: 13px;
-      color: rgba(255,255,255,.85);
+      color: var(--fg-85);
       cursor:pointer;
       user-select:none;
     }
     .tab.active{
-      background: rgba(78,164,255,.14);
-      border-color: rgba(78,164,255,.30);
-      color: rgba(220,240,255,1);
+      background: rgb(var(--accent-rgb) / 0.14);
+      border-color: rgb(var(--accent-rgb) / 0.30);
+      color: var(--tg-text);
     }
 
     /* Sections */
@@ -175,14 +280,14 @@
       width: 100%;
       border-radius: 14px;
       padding: 12px 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
       color: var(--tg-text);
       outline: none;
       font-size: 14px;
     }
-    .input::placeholder{ color: rgba(255,255,255,.35); }
-    .input:focus{ border-color: rgba(78,164,255,.35); background: rgba(255,255,255,.07); }
+    .input::placeholder{ color: var(--fg-35); }
+    .input:focus{ border-color: rgb(var(--accent-rgb) / 0.35); background: var(--surface-2); }
 
     .split{ display:flex; gap: 10px; }
     .split > div{ flex:1; }
@@ -200,28 +305,28 @@
     .pill{
       padding: 9px 12px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      background: var(--surface);
       font-size: 12px;
       font-weight: 900;
       white-space: nowrap;
       user-select: none;
       cursor:pointer;
-      color: rgba(255,255,255,.86);
+      color: var(--fg-86);
     }
     .pill.active{
-      background: rgba(78,164,255,.14);
-      border-color: rgba(78,164,255,.30);
-      color: rgba(220,240,255,1);
+      background: rgb(var(--accent-rgb) / 0.14);
+      border-color: rgb(var(--accent-rgb) / 0.30);
+      color: var(--tg-text);
     }
 
     /* Cards */
     .cards{ display:flex; flex-direction: column; gap: 12px; margin-top: 12px; }
     .card{
       border-radius: 22px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.05);
-      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: var(--shadow);
       padding: 18px;
     }
     .cardHeader{
@@ -234,7 +339,7 @@
     .cardTitle{
       font-weight: 950;
       font-size: 13px;
-      color: rgba(255,255,255,.88);
+      color: var(--fg-88);
     }
     .cardMeta{
       display:flex;
@@ -250,14 +355,14 @@
       resize: none;
       border-radius: 14px;
       padding: 12px 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
       color: var(--tg-text);
       outline: none;
       font-size: 14px;
       line-height: 1.35;
     }
-    textarea.textarea:focus{ border-color: rgba(78,164,255,.35); background: rgba(255,255,255,.07); }
+    textarea.textarea:focus{ border-color: rgb(var(--accent-rgb) / 0.35); background: var(--surface-2); }
 
     .cardFooter{
       display:flex;
@@ -269,9 +374,9 @@
     .btn{
       border-radius: 14px;
       padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.92);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg-92);
       cursor:pointer;
       font-weight: 900;
       font-size: 12px;
@@ -281,9 +386,9 @@
     }
     .btn:active{ transform: scale(.99); }
     .btnPrimary{
-      background: rgba(78,164,255,.20);
-      border-color: rgba(78,164,255,.30);
-      color: rgba(220,240,255,1);
+      background: rgb(var(--accent-rgb) / 0.20);
+      border-color: rgb(var(--accent-rgb) / 0.30);
+      color: var(--tg-text);
     }
     .btnDanger{
       background: rgba(255,92,92,.12);
@@ -291,9 +396,9 @@
       color: rgba(255,210,210,1);
     }
     .btnGhost{
-      background: rgba(255,255,255,.04);
-      border-color: rgba(255,255,255,.10);
-      color: rgba(255,255,255,.86);
+      background: var(--surface-0);
+      border-color: var(--border);
+      color: var(--fg-86);
     }
     .btn[disabled]{
       opacity: .5;
@@ -306,16 +411,16 @@
       padding: 28px 18px;
       color: var(--tg-hint);
       border-radius: 22px;
-      border: 1px dashed rgba(255,255,255,.12);
-      background: rgba(255,255,255,.03);
+      border: 1px dashed var(--border-strong);
+      background: var(--surface-00);
       line-height: 1.4;
     }
 
     .skeleton{
       height: 92px;
       border-radius: 22px;
-      border: 1px solid rgba(255,255,255,.08);
-      background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.08), rgba(255,255,255,.04));
+      border: 1px solid var(--border-soft);
+      background: linear-gradient(90deg, var(--skeleton-a), var(--skeleton-b), var(--skeleton-a));
       background-size: 200% 200%;
       animation: shimmer 1.2s ease-in-out infinite;
     }
@@ -323,12 +428,12 @@
 
     .hintLine{
       margin-top: 12px;
-      color: rgba(255,255,255,.55);
+      color: var(--fg-55);
       font-size: 12px;
       line-height: 1.4;
       padding: 12px 14px;
-      border: 1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border-soft);
+      background: var(--surface-00);
       border-radius: 22px;
     }
     a{ color: var(--tg-link); }
@@ -341,8 +446,8 @@
       bottom: 0;
       z-index: 20;
       padding: 12px var(--pad);
-      background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.50)), var(--tg-bg);
-      border-top: 1px solid rgba(255,255,255,.06);
+      background: linear-gradient(180deg, var(--bottom-grad-1), var(--bottom-grad-2)), var(--tg-bg);
+      border-top: 1px solid var(--border-soft);
       display:flex;
       gap: 10px;
       justify-content:center;
@@ -355,16 +460,16 @@
       border-radius: 16px;
       font-weight: 950;
       letter-spacing: .2px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      background: var(--surface);
       cursor:pointer;
       user-select:none;
-      color: rgba(255,255,255,.92);
+      color: var(--fg-92);
     }
     .cta.primary{
-      background: rgba(78,164,255,.22);
-      border-color: rgba(78,164,255,.32);
-      color: rgba(220,240,255,1);
+      background: rgb(var(--accent-rgb) / 0.22);
+      border-color: rgb(var(--accent-rgb) / 0.32);
+      color: var(--tg-text);
     }
     .cta[aria-disabled="true"]{ opacity:.55; cursor:not-allowed; }
 
@@ -379,10 +484,10 @@
       max-width: min(520px, 92vw);
       padding: 12px 14px;
       border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(16, 23, 34, .96);
-      color: rgba(255,255,255,.95);
-      box-shadow: 0 18px 40px rgba(0,0,0,.45);
+      border: 1px solid var(--border);
+      background: var(--elevated-bg);
+      color: var(--fg-95);
+      box-shadow: var(--shadow-raise);
       display:none;
       font-weight: 850;
       font-size: 13px;
@@ -399,7 +504,7 @@
       position: fixed;
       inset: 0;
       z-index: 60;
-      background: rgba(0,0,0,.55);
+      background: var(--overlay);
       display:none;
       align-items:center;
       justify-content:center;
@@ -409,14 +514,14 @@
     .modal{
       width: min(720px, 92vw);
       border-radius: 22px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(16, 23, 34, .96);
-      box-shadow: 0 22px 60px rgba(0,0,0,.55);
+      border: 1px solid var(--border-strong);
+      background: var(--elevated-bg);
+      box-shadow: var(--shadow-xl);
       overflow:hidden;
     }
     .modalHead{
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
+      border-bottom: 1px solid var(--border-soft);
       display:flex;
       align-items:center;
       justify-content:space-between;
@@ -426,7 +531,7 @@
     .modalBody{ padding: 14px 16px; }
     .modalActions{
       padding: 14px 16px;
-      border-top: 1px solid rgba(255,255,255,.08);
+      border-top: 1px solid var(--border-soft);
       display:flex;
       gap: 10px;
       justify-content:flex-end;
@@ -437,15 +542,12 @@
       font-size: 12px;
       padding: 3px 8px;
       border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.85);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg-85);
     }
   </style>
-</head>
-
-<body>
-  <div class="app">
+    </div class="app">
 
     <div class="topbar">
       <div class="brand">
@@ -456,8 +558,7 @@
         <div id="subtitle" class="subtitle">Live tasks va rejalar</div>
       </div>
 
-      <div class="topActions">
-        <button id="backToBotBtn" class="iconBtn" aria-label="Back">↩︎</button>
+        <div class="topActions">
         <button id="refreshBtn" class="iconBtn" aria-label="Refresh">↻</button>
       </div>
     </div>
@@ -612,6 +713,66 @@
     const tg = window.Telegram.WebApp;
     tg.expand(); tg.ready();
 
+    // ================== THEME (SYSTEM + TELEGRAM) ==================
+    const rootEl = document.documentElement;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+    function hexToRgbTriplet(hex) {
+      try {
+        let h = String(hex || '').trim();
+        if (!h) return null;
+        if (h.startsWith('#')) h = h.slice(1);
+        if (h.length === 3) h = h.split('').map(ch => ch + ch).join('');
+        if (h.length !== 6) return null;
+        const r = parseInt(h.slice(0,2), 16);
+        const g = parseInt(h.slice(2,4), 16);
+        const b = parseInt(h.slice(4,6), 16);
+        if ([r,g,b].some(n => Number.isNaN(n))) return null;
+        return `${r} ${g} ${b}`;
+      } catch { return null; }
+    }
+
+    function getAutoScheme() {
+      const tgScheme = tg?.colorScheme;
+      if (tgScheme === 'dark' || tgScheme === 'light') return tgScheme;
+      try {
+        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      } catch {
+        return 'dark';
+      }
+    }
+
+    function syncAccentFromTelegram() {
+      try {
+        const tp = tg?.themeParams || {};
+        const btn = tp.button_color || tp.link_color || null;
+        const rgb = hexToRgbTriplet(btn);
+        if (btn) rootEl.style.setProperty('--accent', btn);
+        if (rgb) rootEl.style.setProperty('--accent-rgb', rgb);
+      } catch {}
+    }
+
+    function applyAutoTheme() {
+      const scheme = getAutoScheme();
+      rootEl.dataset.theme = scheme;
+      // Keep browser/OS UI in sync (address bar color, etc.)
+      if (themeMeta) themeMeta.setAttribute('content', scheme === 'light' ? '#f6f7fb' : '#0b0f14');
+      syncAccentFromTelegram();
+      // Telegram native chrome (best-effort)
+      try { tg?.setBackgroundColor?.(scheme === 'light' ? '#f6f7fb' : '#0b0f14'); } catch {}
+    }
+
+    // Initial apply
+    applyAutoTheme();
+
+    // React to theme changes
+    try { tg?.onEvent?.('themeChanged', applyAutoTheme); } catch {}
+    try {
+      const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+      mq?.addEventListener?.('change', applyAutoTheme);
+    } catch {}
+
+
     const haptic = tg.HapticFeedback;
 
     // Supabase (hozircha client mode). Prod-hardening uchun keyin /api gateway qo‘shib beramiz.
@@ -637,7 +798,6 @@
     };
 
     const refreshBtn = document.getElementById('refreshBtn');
-    const backToBotBtn = document.getElementById('backToBotBtn');
     const primaryCta = document.getElementById('primaryCta');
     const secondaryCta = document.getElementById('secondaryCta');
 
@@ -1557,12 +1717,6 @@
 
     refreshBtn.addEventListener('click', () => refreshActiveTab());
     secondaryCta.addEventListener('click', () => refreshActiveTab());
-
-    backToBotBtn.addEventListener('click', () => {
-      haptic?.impactOccurred?.('light');
-      tg.close();
-    });
-
     workFilters.querySelectorAll('.pill').forEach(p => {
       p.addEventListener('click', () => {
         workFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
@@ -1676,7 +1830,6 @@
       } catch {}
     }
 
-    // ================== INIT ==================
     async function init() {
       if (!userId) showToast('Telegram user topilmadi', 'bad', 2500);
 
