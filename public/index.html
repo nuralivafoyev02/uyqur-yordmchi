@@ -1630,22 +1630,21 @@
       end.setHours(23, 59, 59, 999);
       return { start, end };
     }
-
     async function loadAnalytics() {
       if (state.role !== 'boss') return;
 
       analyticsList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
 
-      const { start, end } = getRangeDates();
-      const startISO = isoDateFromDate(start);
-      const endISO = isoDateFromDate(end);
+      const { start, end, startISO, endISO } = getRangeDates(state.range);
 
+      // Plans (range: plan_date)
       const { data: plans } = await supabaseClient
         .from('task_plans')
         .select('*')
         .gte('plan_date', startISO)
         .lte('plan_date', endISO);
 
+      // Reports (range: created_at)
       const { data: reps } = await supabaseClient
         .from('reports')
         .select('*')
@@ -1680,19 +1679,69 @@
         return;
       }
 
-      employees.forEach(emp => {
+      const rangeLabel = (rng) => rng === 'today' ? 'Bugun' : (rng === 'week' ? 'Hafta' : 'Oy');
+
+      // 1) Xodimlar statistikasi + SORT (top performers)
+      const rows = employees.map(emp => {
         const k = String(emp.id);
         const p = planBy[k] || { total: 0, sent: 0, queued: 0, draft: 0 };
         const r = repBy[k] || { total: 0, sent: 0, pending: 0 };
+
+        // "Eng ko'p ish bajargan" uchun score: umumiy ishlar soni (sent + pending)
+        const score = r.total;
+
+        return { emp, p, r, score };
+      });
+
+      rows.sort((a, b) =>
+        (b.score - a.score) ||
+        (b.r.sent - a.r.sent) ||
+        String(a.emp.name).localeCompare(String(b.emp.name))
+      );
+
+      // 2) Ranking card (TOP)
+      const top = rows.filter(x => x.r.total > 0).slice(0, 10);
+      const topHtml = top.length
+        ? top.map((x, i) => `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="font-weight:900;">${i + 1}-o‘rin — ${escapeHtml(x.emp.name)}</div>
+            <div class="cardMeta" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+              <span class="badge mini">🧱 Ishlar: ${x.r.total}</span>
+              <span class="badge mini ok">🟢 Yuborilgan: ${x.r.sent}</span>
+            </div>
+          </div>
+        `).join('')
+        : `<div class="tiny">Hali bu davrda ishlar yo‘q 😅</div>`;
+
+      const rankingCard = document.createElement('div');
+      rankingCard.className = 'card';
+      rankingCard.innerHTML = `
+        <div class="cardHeader">
+          <div class="cardTitle">🏆 Eng ko‘p ish bajargan xodimlar</div>
+          <div class="cardMeta">
+            <span class="badge mini">📅 ${rangeLabel(state.range)} · ${startISO} — ${endISO}</span>
+            <span class="badge mini">👥 Team: ${employees.length}</span>
+          </div>
+        </div>
+        <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+          ${topHtml}
+        </div>
+      `;
+      analyticsList.appendChild(rankingCard);
+
+      // 3) Xodim kartalari (sorted)
+      rows.forEach((row, idx) => {
+        const { emp, p, r } = row;
 
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
           <div class="cardHeader">
-            <div class="cardTitle">👤 ${escapeHtml(emp.name)}</div>
+            <div class="cardTitle">#${idx + 1} · 👤 ${escapeHtml(emp.name)}</div>
             <div class="cardMeta">
               <span class="badge mini">Plans: ${p.total}</span>
               <span class="badge mini ok">Sent: ${p.sent}</span>
+              <span class="badge mini">Ishlar: ${r.total}</span>
             </div>
           </div>
 

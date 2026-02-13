@@ -1183,8 +1183,206 @@ bot.action('plan_report_hint', async (ctx) => {
   return bot.telegram.sendMessage(ctx.from.id, '✅ Preview va yuborish uchun: /report');
 });
 
+// ====== LEADERBOARD / MONTH-END SUMMARY (BOSS) ======
+
+// Pad helper
+const pad2 = (n) => String(n).padStart(2, '0');
+const daysInMonth = (year, month1to12) => new Date(Date.UTC(year, month1to12, 0)).getUTCDate();
+
+const getTashkentYMD = () => {
+  const iso = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' }); // YYYY-MM-DD
+  const [y, m, d] = String(iso).split('-').map((x) => parseInt(x, 10));
+  return { y, m, d, iso };
+};
+
+const getPrevMonthRangeISO = () => {
+  const { y, m } = getTashkentYMD();
+  let year = y;
+  let month = m - 1;
+  if (month <= 0) {
+    month = 12;
+    year -= 1;
+  }
+  const startISO = `${year}-${pad2(month)}-01`;
+  const endISO = `${year}-${pad2(month)}-${pad2(daysInMonth(year, month))}`;
+  return { year, month, startISO, endISO };
+};
+
+const buildLeaderboardForRange = async ({ startISO, endISO }) => {
+  // Tashkent timezone'da to'liq oy/kun diapazoni
+  const startTS = `${startISO}T00:00:00+05:00`;
+  const endTS = `${endISO}T23:59:59.999+05:00`;
+
+  const [{ data: employees, error: empErr }, { data: plans, error: planErr }, { data: reps, error: repErr }] =
+    await Promise.all([
+      supabase.from('users_mapping').select('telegram_id, full_name').order('full_name', { ascending: true }),
+      supabase.from('task_plans').select('assignee_tg_id, status').gte('plan_date', startISO).lte('plan_date', endISO),
+      supabase.from('reports').select('user_id, status').gte('created_at', startTS).lte('created_at', endTS),
+    ]);
+
+  if (empErr) throw new Error(`users_mapping error: ${empErr.message}`);
+  if (planErr) throw new Error(`task_plans error: ${planErr.message}`);
+  if (repErr) throw new Error(`reports error: ${repErr.message}`);
+
+  const planBy = {};
+  (plans || []).forEach((p) => {
+    const k = String(p.assignee_tg_id || '');
+    if (!planBy[k]) planBy[k] = { total: 0, sent: 0, queued: 0, draft: 0 };
+    planBy[k].total += 1;
+    if (p.status === 'sent') planBy[k].sent += 1;
+    else if (p.status === 'queued') planBy[k].queued += 1;
+    else planBy[k].draft += 1;
+  });
+
+  const repBy = {};
+  (reps || []).forEach((r) => {
+    const k = String(r.user_id || '');
+    if (!repBy[k]) repBy[k] = { total: 0, sent: 0, pending: 0 };
+    repBy[k].total += 1;
+    if (r.status === 'sent') repBy[k].sent += 1;
+    else repBy[k].pending += 1;
+  });
+
+  const rows = (employees || []).map((u) => {
+    const id = String(u.telegram_id);
+    const name = u.full_name || `TG ${id}`;
+    const p = planBy[id] || { total: 0, sent: 0, queued: 0, draft: 0 };
+    const r = repBy[id] || { total: 0, sent: 0, pending: 0 };
+    return { id, name, p, r, score: r.total };
+  });
+
+  rows.sort((a, b) => (b.score - a.score) || (b.r.sent - a.r.sent) || a.name.localeCompare(b.name));
+  return rows;
+};
+
+// Idempotency: oy oxirida 2 marta ketib qolmasligi uchun (ixtiyoriy)
+// Supabase'da jadval kerak: cron_runs(job text, run_key text, ran_at timestamptz default now(), primary key(job, run_key))
+const reserveCronRun = async (job, runKey) => {
+  try {
+    const { data, error } = await supabase
+      .from('cron_runs')
+      .upsert([{ job, run_key: runKey }], { onConflict: 'job,run_key', ignoreDuplicates: true })
+      .select('job');
+
+    if (error) {
+      // Jadval yo'q bo'lsa ham ishlayversin (faqat dublikatga kafolat yo'q)
+      console.warn('⚠️ cron_runs upsert warning:', error.message);
+      return { reserved: true, via: 'no-table-or-error' };
+    }
+
+    // ignoreDuplicates bo'lsa: insert bo'lsa data.length > 0, mavjud bo'lsa []
+    const reserved = Array.isArray(data) && data.length > 0;
+    return { reserved, via: 'db' };
+  } catch (e) {
+    console.warn('⚠️ cron_runs reserve error:', e?.message || e);
+    return { reserved: true, via: 'exception' };
+  }
+};
+
+const sendMonthlyLeaderboardToBoss = async () => {
+  const { year, month, startISO, endISO } = getPrevMonthRangeISO();
+  const runKey = `${year}-${pad2(month)}`;
+
+  const resv = await reserveCronRun('monthly_leaderboard', runKey);
+  if (!resv.reserved) {
+    console.log(`ℹ️ monthly_leaderboard already sent for ${runKey}`);
+    return { ok: true, skipped: true, runKey };
+  }
+
+  const rows = await buildLeaderboardForRange({ startISO, endISO });
+  const top = rows.filter((x) => x.r.total > 0).slice(0, 10);
+
+  const title = new Intl.DateTimeFormat('uz-UZ', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Tashkent',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+
+  let text = `🏆 <b>Eng faol ishchilar — ${escapeHTML(title)}</b>\n`;
+  text += `<i>Davr:</i> ${escapeHTML(startISO)} — ${escapeHTML(endISO)}\n\n`;
+
+  if (!top.length) {
+    text += 'Hali bu oy bo‘yicha ishlar topilmadi.';
+  } else {
+    top.forEach((x, i) => {
+      text += `${i + 1}-o‘rin — <b>${escapeHTML(x.name)}</b>: ${x.r.total} ish (🟢 ${x.r.sent} yuborilgan)\n`;
+    });
+  }
+
+  await bot.telegram.sendMessage(BOSS_ID, text, { parse_mode: 'HTML' });
+  return { ok: true, skipped: false, runKey };
+};
+
+// Optional: qo'lda tekshirish uchun (rahbar)
+bot.command('top', async (ctx) => {
+  if (ctx.from.id !== BOSS_ID && ctx.from.id !== ADMIN_ID) return;
+
+  const arg = (ctx.message.text.split(' ')[1] || '').trim().toLowerCase();
+  const today = getTashkentISODate(0);
+
+  // default: month (current month-to-date)
+  let startISO = today;
+  let endISO = today;
+
+  if (arg === 'today' || arg === 'bugun') {
+    startISO = today;
+    endISO = today;
+  } else if (arg === 'week' || arg === 'hafta') {
+    // last 7 days (including today)
+    const dt = new Date(`${today}T00:00:00Z`);
+    const dtStart = new Date(dt.getTime() - 6 * 24 * 60 * 60 * 1000);
+    startISO = dtStart.toISOString().slice(0, 10);
+    endISO = today;
+  } else {
+    // month-to-date
+    const [y, m] = today.split('-').map(Number);
+    startISO = `${y}-${pad2(m)}-01`;
+    endISO = today;
+  }
+
+  const rows = await buildLeaderboardForRange({ startISO, endISO });
+  const top = rows.filter((x) => x.r.total > 0).slice(0, 10);
+
+  let text = `🏅 <b>TOP ishchilar</b>\n<i>Davr:</i> ${escapeHTML(startISO)} — ${escapeHTML(endISO)}\n\n`;
+  if (!top.length) {
+    text += 'Bu davrda ishlar topilmadi.';
+  } else {
+    top.forEach((x, i) => {
+      text += `${i + 1}-o‘rin — <b>${escapeHTML(x.name)}</b>: ${x.r.total} ish (🟢 ${x.r.sent})\n`;
+    });
+  }
+
+  return ctx.reply(text, { parse_mode: 'HTML' });
+});
+
 // ====== SERVER LOGIC ======
 module.exports = async (req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  const job = url.searchParams.get('job');
+
+  // ====== CRON / JOBS (GET) ======
+  if (req.method === 'GET' && job) {
+    try {
+      if (job === 'monthly_leaderboard') {
+        const expected = process.env.CRON_SECRET;
+        if (expected) {
+          const got = url.searchParams.get('secret') || getHeader(req, 'x-cron-secret');
+          if (got !== expected) return res.status(401).send('Invalid cron secret');
+        }
+
+        const result = await sendMonthlyLeaderboardToBoss();
+        if (typeof res.json === 'function') return res.status(200).json(result);
+        return res.status(200).send(JSON.stringify(result));
+      }
+
+      return res.status(404).send('Unknown job');
+    } catch (err) {
+      console.error('Cron/job handler error:', err?.message || err);
+      return res.status(500).send('Cron error');
+    }
+  }
+
+  // ====== WEBHOOKS (POST) ======
   if (req.method === 'POST') {
     try {
       // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
