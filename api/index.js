@@ -35,6 +35,24 @@ const WEB_APP_URL = process.env.VERCEL_URL
 const CLICKUP_STATUS_PROCESS = process.env.CLICKUP_STATUS_PROCESS || 'in progress';
 const CLICKUP_STATUS_DONE = process.env.CLICKUP_STATUS_DONE || 'closed';
 
+const parseJSONEnv = (raw, fallback) => {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('❌ JSON parse error:', err?.message || err);
+    return fallback;
+  }
+};
+
+const TASKMODE_COMPANY_OWNERS = parseJSONEnv(process.env.TASKMODE_COMPANY_OWNERS_JSON, {});
+const TASKMODE_ALLOWED_IDS = new Set([ADMIN_ID, ...TASK_PLANNERS]);
+const USER_CACHE_TTL_MS = 60 * 1000;
+const usersCache = {
+  value: null,
+  expiresAt: 0,
+};
+
 // ====== HELPERS ======
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -44,6 +62,266 @@ const escapeHTML = (str) => {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+};
+
+const chunkArray = (items, size = 2) => {
+  const rows = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
+};
+
+const normalizePhone = (value) => String(value || '').replace(/\D+/g, '');
+const normalizeHandle = (value) => String(value || '').trim().replace(/^@+/, '').toLowerCase();
+const normalizeCompanyKey = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[|]/g, ' | ')
+    .trim();
+
+const toMonthShortUz = (value) => {
+  const months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+  return months[value - 1] || String(value || '');
+};
+
+const nowTashkent = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+
+const getTodayMonthDayLabel = () => {
+  const dt = nowTashkent();
+  return `${String(dt.getDate()).padStart(2, '0')} ${toMonthShortUz(dt.getMonth() + 1)}`;
+};
+
+const buildWelcomeText = (firstName = 'foydalanuvchi') => (
+  `Assalomu alaykum, <b>${escapeHTML(firstName)}</b>!
+
+` +
+  `Men sizning ish hisobotlaringizni yig'ish va ClickUp vazifalaringizni boshqarishda yordam beraman.
+
+` +
+  `📖 Buyruqlar va yordam: /help`
+);
+
+const getUpdateMessage = (update) => update?.message || update?.edited_message || null;
+const getMessageText = (update) => String(getUpdateMessage(update)?.text || '').trim();
+const isPrivateChatUpdate = (update) => getUpdateMessage(update)?.chat?.type === 'private';
+const isStartCommand = (update) => /^\/start(?:@\w+)?(?:\s|$)/i.test(getMessageText(update));
+
+const buildWebhookReplySendMessage = (chatId, text, extra = {}) => ({
+  method: 'sendMessage',
+  chat_id: chatId,
+  text,
+  ...extra,
+});
+
+const getCachedUsers = async ({ force = false } = {}) => {
+  const now = Date.now();
+  if (!force && usersCache.value && usersCache.expiresAt > now) {
+    return usersCache.value;
+  }
+
+  const { data, error } = await supabase
+    .from('users_mapping')
+    .select('*')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  usersCache.value = data || [];
+  usersCache.expiresAt = now + USER_CACHE_TTL_MS;
+  return usersCache.value;
+};
+
+const invalidateUsersCache = () => {
+  usersCache.value = null;
+  usersCache.expiresAt = 0;
+};
+
+const resolveCompanyOwnerConfig = (companyName) => {
+  const key = normalizeCompanyKey(companyName);
+  const entries = Object.entries(TASKMODE_COMPANY_OWNERS || {});
+  for (const [rawKey, value] of entries) {
+    if (normalizeCompanyKey(rawKey) === key) return value || null;
+  }
+  return null;
+};
+
+const resolveUserRecipient = async ({ companyName, username, phone }) => {
+  const cfg = resolveCompanyOwnerConfig(companyName);
+  if (cfg?.telegram_id) {
+    return {
+      telegram_id: Number(cfg.telegram_id),
+      username: cfg.username || username || null,
+      phone: cfg.phone || phone || null,
+      full_name: cfg.full_name || cfg.display_name || companyName,
+      source: 'config',
+    };
+  }
+
+  const users = await getCachedUsers();
+  const phoneNorm = normalizePhone(phone);
+  const userNorm = normalizeHandle(username);
+
+  for (const row of users) {
+    const rowPhone = normalizePhone(row.phone);
+    const rowUsername = normalizeHandle(row.username);
+    if (phoneNorm && rowPhone && phoneNorm === rowPhone) {
+      return { ...row, source: 'users_mapping.phone' };
+    }
+    if (userNorm && rowUsername && userNorm === rowUsername) {
+      return { ...row, source: 'users_mapping.username' };
+    }
+  }
+
+  return null;
+};
+
+const parseTaskmodeCompanies = (input) => {
+  const raw = String(input || '').replace(/\r/g, '').trim();
+  if (!raw) return [];
+
+  const starts = [...raw.matchAll(/(^|\n)\s*(\d+\.)?\s*🏗/g)].map((m) => (m.index || 0) + (m[1] ? m[1].length : 0));
+  const chunks = [];
+
+  if (!starts.length) {
+    chunks.push(raw);
+  } else {
+    for (let i = 0; i < starts.length; i++) {
+      const start = starts[i];
+      const end = i + 1 < starts.length ? starts[i + 1] : raw.length;
+      const part = raw.slice(start, end).trim();
+      if (part) chunks.push(part);
+    }
+  }
+
+  return chunks.map((block) => {
+    const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+    const header = lines[0] || '';
+    const companyMatch = header.match(/🏗\s*(.+?)\s*(?:кунлик ҳисоботи|kunlik hisoboti)\s*:/i);
+    const companyName = companyMatch ? companyMatch[1].trim() : header.replace(/^\d+\.\s*/, '').replace(/^🏗\s*/, '').trim();
+
+    const sections = [];
+    for (const line of lines) {
+      if (!/^[🔴🟢]/u.test(line) || !line.includes(':')) continue;
+      const [labelRaw, restRaw] = line.split(/:(.+)/).filter(Boolean);
+      const label = String(labelRaw || '').replace(/^[🔴🟢]\s*/u, '').trim();
+      const rest = String(restRaw || '').trim();
+      const active = /^[🟢]/u.test(line) || /фаол|faol/i.test(rest);
+      sections.push({ label, active, raw: line });
+    }
+
+    const inactiveSections = sections.filter((x) => !x.active).map((x) => x.label);
+    const employeeLine = lines.find((line) => /👤\s*Ходим:|👤\s*Xodim:/i.test(line)) || '';
+    const username = (employeeLine.match(/@([A-Za-z0-9_]+)/) || [null, null])[1];
+    const phone = (employeeLine.match(/\+?\d[\d\s]{8,}/) || [null])[0];
+    const activityLine = lines.find((line) => /📅\s*Фаоллик даври:|📅\s*Faollik davri:/i.test(line)) || '';
+    const totalLine = lines.find((line) => /📊\s*Жами амаллар:|📊\s*Jami amallar:/i.test(line)) || '';
+
+    return {
+      raw: block,
+      companyName,
+      sections,
+      inactiveSections,
+      employeeLine,
+      username: username ? `@${username}` : null,
+      phone: phone ? phone.replace(/\s+/g, ' ').trim() : null,
+      activityLine,
+      totalLine,
+    };
+  }).filter((item) => item.companyName);
+};
+
+const buildTaskmodeEmployeeText = ({ companyName, inactiveSections, activityLine }) => {
+  const list = inactiveSections.map((item) => `• ${escapeHTML(item)}`).join('\n');
+  const activityText = activityLine ? `\n${escapeHTML(activityLine)}` : '';
+  return (
+    `🏗 <b>${escapeHTML(companyName)}</b> bo‘yicha holat tekshirildi.\n\n` +
+    `❗ <b>No-faol bo‘limlar:</b>\n${list}\n\n` +
+    `Iltimos, shu bo‘limlar bilan aloqaga chiqib, nofaollik sababini aniqlang va natijani qayta yuboring.` +
+    `${activityText}`
+  );
+};
+
+const buildTaskmodePreview = ({ items, unresolved, sourceCount }) => {
+  let text = `🧠 <b>Taskmode tahlili tayyor</b>\n\n`;
+  text += `📥 Tahlil qilingan kompaniyalar: <b>${sourceCount}</b>\n`;
+  text += `📨 Yuboriladigan topshiriqlar: <b>${items.length}</b>\n`;
+  if (unresolved.length) {
+    text += `⚠️ Aniqlanmagan mas'ullar: <b>${unresolved.length}</b>\n`;
+  }
+  text += `\n`;
+
+  items.forEach((item, idx) => {
+    text += `<b>${idx + 1}. ${escapeHTML(item.company_name)}</b>\n`;
+    text += `Mas'ul: ${escapeHTML(item.owner_label)}\n`;
+    text += `Bo‘limlar: ${item.inactive_sections.map((x) => escapeHTML(x)).join(', ')}\n\n`;
+  });
+
+  if (unresolved.length) {
+    text += `<b>Yuborilmaydigan kompaniyalar</b>\n`;
+    unresolved.forEach((item, idx) => {
+      text += `${idx + 1}. ${escapeHTML(item.company_name)} — ${escapeHTML(item.reason)}\n`;
+    });
+  }
+
+  return text.slice(0, 3800);
+};
+
+const buildTaskmodeJobPayload = async (input) => {
+  const companies = parseTaskmodeCompanies(input);
+  const notifications = [];
+  const unresolved = [];
+
+  for (const company of companies) {
+    if (!company.inactiveSections.length) continue;
+
+    const recipient = await resolveUserRecipient({
+      companyName: company.companyName,
+      username: company.username,
+      phone: company.phone,
+    });
+
+    const ownerLabel = recipient?.full_name
+      || company.username
+      || company.phone
+      || company.companyName;
+
+    const notification = {
+      company_name: company.companyName,
+      inactive_sections: company.inactiveSections,
+      owner_label: ownerLabel,
+      owner_username: recipient?.username || company.username || null,
+      owner_phone: recipient?.phone || company.phone || null,
+      telegram_id: recipient?.telegram_id ? Number(recipient.telegram_id) : null,
+      message_text: buildTaskmodeEmployeeText({
+        companyName: company.companyName,
+        inactiveSections: company.inactiveSections,
+        activityLine: company.activityLine,
+      }),
+      source: recipient?.source || null,
+    };
+
+    if (notification.telegram_id) {
+      notifications.push(notification);
+    } else {
+      unresolved.push({
+        company_name: company.companyName,
+        reason: company.username || company.phone || 'telegram_id topilmadi',
+      });
+    }
+  }
+
+  return {
+    companies,
+    notifications,
+    unresolved,
+    preview_text: buildTaskmodePreview({
+      items: notifications,
+      unresolved,
+      sourceCount: companies.length,
+    }),
+  };
 };
 
 // ====== CLICKUP TASK STATUS + TG MESSAGE SYNC (FIX) ======
@@ -391,29 +669,57 @@ async function handleClickUpWebhook(req) {
 }
 
 // ====== TELEGRAM COMMANDS ======
-// /bind - faqat admin (TG_ID ClickUp_ID Ism)
+// /bind - faqat admin (TG_ID ClickUp_ID [@username] [+998...] Ism)
 bot.command('bind', async (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return ctx.reply('Siz admin emassiz!');
 
-  const args = ctx.message.text.split(' ').slice(1);
-  if (args.length < 3) return ctx.reply("Xato! Format: /bind TG_ID ClickUp_ID Ism");
+  const args = ctx.message.text.split(' ').slice(1).filter(Boolean);
+  if (args.length < 3) {
+    return ctx.reply("Xato! Format: /bind TG_ID ClickUp_ID [@username] [+998...] Ism");
+  }
 
-  const [tg_id, cu_id, ...nameParts] = args;
-  const fullName = nameParts.join(' ');
+  const [tg_id, cu_id, ...rest] = args;
+  let username = null;
+  let phone = null;
+  const tail = [...rest];
 
-  const { error } = await supabase
-    .from('users_mapping')
-    .upsert({
-      telegram_id: parseInt(tg_id, 10),
-      clickup_user_id: parseInt(cu_id, 10),
-      full_name: fullName,
-    });
+  if (tail[0] && /^@/.test(tail[0])) {
+    username = tail.shift();
+  }
+  if (tail[0] && /^\+?\d[\d\s-]{8,}$/.test(tail[0])) {
+    phone = tail.shift();
+  }
+
+  const fullName = tail.join(' ').trim();
+  if (!fullName) {
+    return ctx.reply("Xato! Ism kiritilishi shart. Format: /bind TG_ID ClickUp_ID [@username] [+998...] Ism");
+  }
+
+  const basePayload = {
+    telegram_id: parseInt(tg_id, 10),
+    clickup_user_id: parseInt(cu_id, 10),
+    full_name: fullName,
+  };
+
+  const extendedPayload = {
+    ...basePayload,
+    ...(username ? { username } : {}),
+    ...(phone ? { phone } : {}),
+  };
+
+  let error = null;
+  ({ error } = await supabase.from('users_mapping').upsert(extendedPayload));
+
+  if (error && /column/i.test(error.message || '')) {
+    ({ error } = await supabase.from('users_mapping').upsert(basePayload));
+  }
 
   if (error) {
-    ctx.reply(`Xato: ${error.message}`);
-  } else {
-    ctx.reply(`✅ ${fullName} muvaffaqiyatli bog'landi!`);
+    return ctx.reply(`Xato: ${error.message}`);
   }
+
+  invalidateUsersCache();
+  return ctx.reply(`✅ ${fullName} muvaffaqiyatli bog'landi!`);
 });
 
 // =========================
@@ -554,11 +860,7 @@ bot.command('message', async (ctx) => {
 });
 
 bot.start(async (ctx) => {
-  const welcome =
-    `Assalomu alaykum, <b>${escapeHTML(ctx.from.first_name)}</b>!\n\n` +
-    `Men sizning ish hisobotlaringizni yig'ish va ClickUp vazifalaringizni boshqarishda yordam beraman.\n\n` +
-    `📖 Buyruqlar va yordam: /help`;
-  await ctx.reply(welcome, { parse_mode: 'HTML' });
+  await ctx.reply(buildWelcomeText(ctx.from.first_name), { parse_mode: 'HTML' });
 });
 
 bot.help(async (ctx) => {
@@ -723,29 +1025,171 @@ const formatUzDate = (isoDate) => {
   }
 };
 
-const sendEmployeePicker = async (ctx, title = "👥 Xodimni tanlang") => {
-  const { data: users, error } = await supabase
-    .from('users_mapping')
-    .select('telegram_id, full_name')
-    .order('full_name', { ascending: true });
+const isTaskmodeAllowed = (telegramId) => TASKMODE_ALLOWED_IDS.has(Number(telegramId));
 
-  if (error || !users?.length) {
+const isTaskmodeEnabled = async (telegramId) => {
+  const { data, error } = await supabase
+    .from('taskmode_state')
+    .select('enabled')
+    .eq('creator_id', telegramId)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code !== 'PGRST116') {
+      console.error('taskmode_state select error:', error.message);
+    }
+    return false;
+  }
+
+  return Boolean(data?.enabled);
+};
+
+const sendEmployeePicker = async (ctx, title = "👥 Xodimni tanlang") => {
+  let users;
+  try {
+    users = await getCachedUsers();
+  } catch (error) {
+    console.error('users_mapping cache fetch error:', error.message || error);
     return ctx.reply("❌ Xodimlar ro'yxati topilmadi. Avval /bind bilan xodimlarni bog'lab chiqing.");
   }
 
-  const rows = [];
-  for (let i = 0; i < users.length; i += 2) {
-    const row = [];
-    row.push(Markup.button.callback(users[i].full_name, `plan_select_${users[i].telegram_id}`));
-    if (users[i + 1]) {
-      row.push(Markup.button.callback(users[i + 1].full_name, `plan_select_${users[i + 1].telegram_id}`));
-    }
-    rows.push(row);
+  if (!users?.length) {
+    return ctx.reply("❌ Xodimlar ro'yxati topilmadi. Avval /bind bilan xodimlarni bog'lab chiqing.");
   }
+
+  const rows = chunkArray(users, 2).map((group) =>
+    group.map((user) => Markup.button.callback(user.full_name, `plan_select_${user.telegram_id}`))
+  );
   rows.push([Markup.button.callback('❌ Rejimdan chiqish', 'plan_exit')]);
 
   return ctx.reply(title, Markup.inlineKeyboard(rows));
 };
+
+bot.command('taskmode', async (ctx) => {
+  if (!isTaskmodeAllowed(ctx.from.id)) {
+    return ctx.reply("Bu buyruq faqat admin yoki mas'ul shaxslar uchun.");
+  }
+
+  const { error } = await supabase.from('taskmode_state').upsert({
+    creator_id: ctx.from.id,
+    enabled: true,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error('taskmode_state upsert error:', error.message || error);
+    return ctx.reply("❌ Taskmode yoqilmadi. DB xatolik yuz berdi.");
+  }
+
+  return ctx.reply(
+    "✅ Taskmode yoqildi. Endi kompaniyalar bo‘yicha kunlik hisobot matnini shu chatga yuboring — bot nofaol bo‘limlarni tahlil qiladi va yuborishdan oldin tasdiq so‘raydi."
+  );
+});
+
+bot.command('taskmodeoff', async (ctx) => {
+  if (!isTaskmodeAllowed(ctx.from.id)) {
+    return ctx.reply("Bu buyruq faqat admin yoki mas'ul shaxslar uchun.");
+  }
+
+  const { error } = await supabase.from('taskmode_state').upsert({
+    creator_id: ctx.from.id,
+    enabled: false,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error('taskmode_state disable error:', error.message || error);
+    return ctx.reply("❌ Taskmode o‘chmadi. DB xatolik yuz berdi.");
+  }
+
+  return ctx.reply("✅ Taskmode o‘chirildi.");
+});
+
+bot.action(/taskmode_confirm_(\d+)/, async (ctx) => {
+  if (!isTaskmodeAllowed(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo‘q");
+
+  const jobId = Number(ctx.match[1]);
+  const { data: job, error } = await supabase
+    .from('taskmode_jobs')
+    .select('id, creator_id, status, notifications')
+    .eq('id', jobId)
+    .maybeSingle();
+
+  if (error || !job) {
+    return ctx.answerCbQuery('Draft topilmadi');
+  }
+  if (job.creator_id !== ctx.from.id) {
+    return ctx.answerCbQuery('Bu draft sizniki emas');
+  }
+  if (job.status !== 'draft') {
+    return ctx.answerCbQuery('Bu draft allaqachon yakunlangan');
+  }
+
+  await ctx.answerCbQuery('Yuborilmoqda...');
+
+  let ok = 0;
+  let fail = 0;
+  const failed = [];
+
+  for (const item of job.notifications || []) {
+    if (!item?.telegram_id) {
+      fail += 1;
+      failed.push(`${item?.company_name || "Noma'lum kompaniya"} — telegram_id yo‘q`);
+      continue;
+    }
+
+    try {
+      await ctx.telegram.sendMessage(item.telegram_id, item.message_text, { parse_mode: 'HTML' });
+      ok += 1;
+      await delay(35);
+    } catch (err) {
+      fail += 1;
+      failed.push(`${item.company_name} — ${err?.response?.description || err?.message || 'yuborilmadi'}`);
+    }
+  }
+
+  await supabase
+    .from('taskmode_jobs')
+    .update({
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      result_meta: { sent_ok: ok, sent_fail: fail, failed },
+    })
+    .eq('id', jobId);
+
+  let text = `✅ <b>Taskmode topshiriqlari yuborildi</b>\n\nYuborildi: <b>${ok}</b>\nXato: <b>${fail}</b>`;
+  if (failed.length) {
+    text += `\n\n<b>Xatolar:</b>\n${failed.map((x, i) => `${i + 1}. ${escapeHTML(x)}`).join('\n')}`;
+  }
+
+  return ctx.editMessageText(text.slice(0, 3900), { parse_mode: 'HTML' });
+});
+
+bot.action(/taskmode_cancel_(\d+)/, async (ctx) => {
+  if (!isTaskmodeAllowed(ctx.from.id)) return ctx.answerCbQuery("Ruxsat yo‘q");
+
+  const jobId = Number(ctx.match[1]);
+  const { data: job } = await supabase
+    .from('taskmode_jobs')
+    .select('id, creator_id, status')
+    .eq('id', jobId)
+    .maybeSingle();
+
+  if (!job || job.creator_id !== ctx.from.id) {
+    return ctx.answerCbQuery('Draft topilmadi');
+  }
+  if (job.status !== 'draft') {
+    return ctx.answerCbQuery('Bu draft allaqachon yakunlangan');
+  }
+
+  await supabase
+    .from('taskmode_jobs')
+    .update({ status: 'cancelled' })
+    .eq('id', jobId);
+
+  await ctx.answerCbQuery('Bekor qilindi');
+  return ctx.editMessageText('❌ Taskmode draft bekor qilindi.');
+});
 
 // ====== /tasks komandasi ======
 // /tasks -> xodim tanlash
@@ -777,11 +1221,8 @@ bot.command('tasks', async (ctx) => {
       return ctx.reply("📭 Ertangi vazifalar ro'yxati hozircha bo'sh.");
     }
 
-    const ids = [...new Set(items.map((i) => i.assignee_tg_id))];
-    const { data: users } = await supabase
-      .from('users_mapping')
-      .select('telegram_id, full_name')
-      .in('telegram_id', ids);
+    const ids = new Set(items.map((i) => Number(i.assignee_tg_id)));
+    const users = (await getCachedUsers()).filter((u) => ids.has(Number(u.telegram_id)));
 
     const nameMap = new Map((users || []).map((u) => [u.telegram_id, u.full_name]));
 
@@ -834,12 +1275,8 @@ bot.action(/plan_select_(\d+)/, async (ctx) => {
 
   await ctx.answerCbQuery('✅ Tanlandi');
 
-  const { data: user } = await supabase
-    .from('users_mapping')
-    .select('full_name')
-    .eq('telegram_id', assigneeId)
-    .single();
-
+  const users = await getCachedUsers();
+  const user = users.find((row) => Number(row.telegram_id) === assigneeId);
   const name = escapeHTML(user?.full_name || String(assigneeId));
 
   return ctx.editMessageText(
@@ -891,10 +1328,8 @@ bot.command('report', async (ctx) => {
 
   const assigneeIds = [...new Set(tasks.map((t) => t.assignee_tg_id))];
 
-  const { data: users } = await supabase
-    .from('users_mapping')
-    .select('telegram_id, full_name')
-    .in('telegram_id', assigneeIds);
+  const assigneeSet = new Set(assigneeIds.map((x) => Number(x)));
+  const users = (await getCachedUsers()).filter((u) => assigneeSet.has(Number(u.telegram_id)));
 
   const nameMap = new Map((users || []).map((u) => [u.telegram_id, u.full_name]));
 
@@ -1114,7 +1549,86 @@ bot.on('text', async (ctx) => {
     return;
   }
 
-  // 4) Agar mas'ul shaxs /tasks rejimida bo'lsa - task_plans ga yozamiz
+  // 4) Taskmode yoqilgan bo'lsa - kompaniya hisobotini tahlil qilamiz
+  const textValue = (ctx.message.text || '').trim();
+  const looksLikeTaskmodeInput = /🏗|кунлик ҳисоботи|kunlik hisoboti/i.test(textValue);
+
+  if (looksLikeTaskmodeInput && isTaskmodeAllowed(ctx.from.id) && await isTaskmodeEnabled(ctx.from.id)) {
+    const progress = await ctx.reply('⏳ Tahlil qilinmoqda...');
+
+    try {
+      const payload = await buildTaskmodeJobPayload(textValue);
+
+      if (!payload.companies.length) {
+        return ctx.telegram.editMessageText(
+          ctx.chat.id,
+          progress.message_id,
+          undefined,
+          "⚠️ Taskmode uchun kompaniya hisobotlari topilmadi. Matn formatini tekshiring.",
+        );
+      }
+
+      if (!payload.notifications.length && !payload.unresolved.length) {
+        return ctx.telegram.editMessageText(
+          ctx.chat.id,
+          progress.message_id,
+          undefined,
+          "✅ Tahlil tugadi. Hozircha no-faol bo‘lim topilmadi.",
+        );
+      }
+
+      const { data: job, error } = await supabase
+        .from('taskmode_jobs')
+        .insert([
+          {
+            creator_id: ctx.from.id,
+            raw_text: textValue,
+            preview_text: payload.preview_text,
+            notifications: payload.notifications,
+            unresolved: payload.unresolved,
+            source_count: payload.companies.length,
+            status: 'draft',
+          },
+        ])
+        .select('id')
+        .single();
+
+      if (error || !job?.id) {
+        console.error('taskmode_jobs insert error:', error?.message || error);
+        return ctx.telegram.editMessageText(
+          ctx.chat.id,
+          progress.message_id,
+          undefined,
+          "❌ Taskmode draft saqlanmadi. DB xatolik yuz berdi.",
+        );
+      }
+
+      const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('✅ Tayyor, yuborishni tasdiqlang', `taskmode_confirm_${job.id}`)],
+        [Markup.button.callback('❌ Bekor qilish', `taskmode_cancel_${job.id}`)],
+      ]);
+
+      return ctx.telegram.editMessageText(
+        ctx.chat.id,
+        progress.message_id,
+        undefined,
+        `${payload.preview_text}
+
+✅ <b>Tayyor.</b> Yuborishni tasdiqlang.`,
+        { parse_mode: 'HTML', ...keyboard },
+      );
+    } catch (err) {
+      console.error('taskmode parse error:', err?.message || err);
+      return ctx.telegram.editMessageText(
+        ctx.chat.id,
+        progress.message_id,
+        undefined,
+        "❌ Taskmode tahlilida xatolik yuz berdi.",
+      );
+    }
+  }
+
+  // 5) Agar mas'ul shaxs /tasks rejimida bo'lsa - task_plans ga yozamiz
   if (isPlanner(ctx.from.id)) {
     const { data: state } = await supabase
       .from('planner_state')
@@ -1402,6 +1916,17 @@ module.exports = async (req, res) => {
       if (!tgOk) {
         console.warn('⚠️ Telegram secret token verification failed');
         return res.status(401).send('Invalid telegram secret');
+      }
+
+      if (isPrivateChatUpdate(req.body) && isStartCommand(req.body)) {
+        const msg = getUpdateMessage(req.body);
+        const payload = buildWebhookReplySendMessage(
+          msg.chat.id,
+          buildWelcomeText(msg?.from?.first_name || 'foydalanuvchi'),
+          { parse_mode: 'HTML' },
+        );
+        if (typeof res.json === 'function') return res.status(200).json(payload);
+        return res.status(200).send(JSON.stringify(payload));
       }
 
       await bot.handleUpdate(req.body);
