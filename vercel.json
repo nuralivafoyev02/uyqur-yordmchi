@@ -3,7 +3,7 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ],
-    "crons": [
+  "crons": [
     {
       "path": "/api/telegram/webhook?job=monthly_leaderboard&secret=super_maxfiy_token",
       "schedule": "5 4 1 * *"
