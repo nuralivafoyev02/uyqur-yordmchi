@@ -177,6 +177,21 @@ const resolveUserRecipient = async ({ companyName, username, phone }) => {
   return null;
 };
 
+const TASKMODE_INACTIVE_RE = /(no\s*-?\s*faol|нофаол)/i;
+const TASKMODE_ACTIVE_RE = /(^|[^A-Za-zА-Яа-яЁё])(faol|фаол)([^A-Za-zА-Яа-яЁё]|$)/i;
+
+const detectTaskmodeSectionActivity = (line, rest) => {
+  const joined = `${line} ${rest}`;
+
+  if (/^🔴/u.test(line)) return false;
+  if (/^🟢/u.test(line)) return true;
+
+  if (TASKMODE_INACTIVE_RE.test(joined)) return false;
+  if (TASKMODE_ACTIVE_RE.test(joined)) return true;
+
+  return null;
+};
+
 const parseTaskmodeCompanies = (input) => {
   const raw = String(input || '').replace(/\r/g, '').trim();
   if (!raw) return [];
@@ -207,7 +222,8 @@ const parseTaskmodeCompanies = (input) => {
       const [labelRaw, restRaw] = line.split(/:(.+)/).filter(Boolean);
       const label = String(labelRaw || '').replace(/^[🔴🟢]\s*/u, '').trim();
       const rest = String(restRaw || '').trim();
-      const active = /^[🟢]/u.test(line) || /фаол|faol/i.test(rest);
+      const active = detectTaskmodeSectionActivity(line, rest);
+      if (active === null) continue;
       sections.push({ label, active, raw: line });
     }
 
