@@ -259,26 +259,64 @@ const buildTaskmodeEmployeeText = ({ companyName, inactiveSections, activityLine
   );
 };
 
+const buildTaskmodeRecipientLabel = (item) => {
+  const parts = [];
+  if (item?.owner_label) parts.push(escapeHTML(String(item.owner_label)));
+  if (item?.owner_username) parts.push(escapeHTML(String(item.owner_username)));
+  if (item?.owner_phone) parts.push(escapeHTML(String(item.owner_phone)));
+  if (item?.telegram_id) parts.push(`TG:${escapeHTML(String(item.telegram_id))}`);
+  return parts.filter(Boolean).join(' | ');
+};
+
 const buildTaskmodePreview = ({ items, unresolved, sourceCount }) => {
-  let text = `🧠 <b>Taskmode tahlili tayyor</b>\n\n`;
-  text += `📥 Tahlil qilingan kompaniyalar: <b>${sourceCount}</b>\n`;
-  text += `📨 Yuboriladigan topshiriqlar: <b>${items.length}</b>\n`;
-  if (unresolved.length) {
-    text += `⚠️ Aniqlanmagan mas'ullar: <b>${unresolved.length}</b>\n`;
-  }
-  text += `\n`;
+  let text = `🧠 <b>Taskmode tahlili tayyor</b>
 
-  items.forEach((item, idx) => {
-    text += `<b>${idx + 1}. ${escapeHTML(item.company_name)}</b>\n`;
-    text += `Mas'ul: ${escapeHTML(item.owner_label)}\n`;
-    text += `Bo‘limlar: ${item.inactive_sections.map((x) => escapeHTML(x)).join(', ')}\n\n`;
-  });
+`;
+  text += `📥 Tahlil qilingan kompaniyalar: <b>${sourceCount}</b>
+`;
+  text += `📨 Yuboriladigan topshiriqlar: <b>${items.length}</b>
+`;
+  text += `🚫 Yuborib bo‘lmaydiganlari: <b>${unresolved.length}</b>
+`;
+  text += `
+`;
 
-  if (unresolved.length) {
-    text += `<b>Yuborilmaydigan kompaniyalar</b>\n`;
-    unresolved.forEach((item, idx) => {
-      text += `${idx + 1}. ${escapeHTML(item.company_name)} — ${escapeHTML(item.reason)}\n`;
+  if (items.length) {
+    text += `<b>Kimlarga yuboriladi</b>
+`;
+    items.forEach((item, idx) => {
+      const recipientLabel = buildTaskmodeRecipientLabel(item) || escapeHTML(item.company_name);
+      text += `${idx + 1}. <b>${escapeHTML(item.company_name)}</b>
+`;
+      text += `👤 Qabul qiluvchi: ${recipientLabel}
+`;
+      text += `📌 No-faol bo‘limlar: ${item.inactive_sections.map((x) => escapeHTML(x)).join(', ')}
+`;
+      if (item.source) {
+        text += `🔎 Manba: ${escapeHTML(item.source)}
+`;
+      }
+      text += `
+`;
     });
+  }
+
+  if (unresolved.length) {
+    text += `<b>Yuborilmaydigan kompaniyalar</b>
+`;
+    unresolved.forEach((item, idx) => {
+      text += `${idx + 1}. <b>${escapeHTML(item.company_name)}</b>
+`;
+      if (item.owner_hint) {
+        text += `👤 Hisobotdagi mas'ul: ${escapeHTML(item.owner_hint)}
+`;
+      }
+      text += `⚠️ Sabab: ${escapeHTML(item.reason)}
+
+`;
+    });
+    text += `ℹ️ Eslatma: yuborish ishlashi uchun mas'ul xodim <b>users_mapping</b> yoki <b>TASKMODE_COMPANY_OWNERS_JSON</b> orqali Telegram ID bilan bog‘langan bo‘lishi kerak.
+`;
   }
 
   return text.slice(0, 3800);
@@ -323,7 +361,8 @@ const buildTaskmodeJobPayload = async (input) => {
     } else {
       unresolved.push({
         company_name: company.companyName,
-        reason: company.username || company.phone || 'telegram_id topilmadi',
+        owner_hint: [company.username, company.phone].filter(Boolean).join(' | ') || company.companyName,
+        reason: 'users_mapping yoki TASKMODE_COMPANY_OWNERS_JSON ichida mos telegram_id topilmadi',
       });
     }
   }
@@ -1141,11 +1180,35 @@ bot.action(/taskmode_confirm_(\d+)/, async (ctx) => {
     return ctx.answerCbQuery('Bu draft allaqachon yakunlangan');
   }
 
+  if (!Array.isArray(job.notifications) || !job.notifications.length) {
+    await supabase
+      .from('taskmode_jobs')
+      .update({
+        status: 'blocked',
+        result_meta: {
+          sent_ok: 0,
+          sent_fail: 0,
+          failed: [],
+          reason: 'notifications_empty',
+        },
+      })
+      .eq('id', jobId);
+
+    await ctx.answerCbQuery('Yuboriladigan xodim topilmadi');
+    return ctx.editMessageText(
+      `⚠️ <b>Yuborish bajarilmadi</b>
+
+Hech kimga yuborilmadi, chunki tasdiqlangan draft ichida haqiqiy Telegram qabul qiluvchilar topilmadi. Avval previewdagi aniqlanmagan mas'ullarni /bind yoki TASKMODE_COMPANY_OWNERS_JSON orqali bog‘lang.`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
   await ctx.answerCbQuery('Yuborilmoqda...');
 
   let ok = 0;
   let fail = 0;
   const failed = [];
+  const sentTo = [];
 
   for (const item of job.notifications || []) {
     if (!item?.telegram_id) {
@@ -1157,6 +1220,7 @@ bot.action(/taskmode_confirm_(\d+)/, async (ctx) => {
     try {
       await ctx.telegram.sendMessage(item.telegram_id, item.message_text, { parse_mode: 'HTML' });
       ok += 1;
+      sentTo.push(buildTaskmodeRecipientLabel(item) || `${item.company_name} | TG:${item.telegram_id}`);
       await delay(35);
     } catch (err) {
       fail += 1;
@@ -1590,6 +1654,18 @@ bot.on('text', async (ctx) => {
           progress.message_id,
           undefined,
           "✅ Tahlil tugadi. Hozircha no-faol bo‘lim topilmadi.",
+        );
+      }
+
+      if (!payload.notifications.length && payload.unresolved.length) {
+        return ctx.telegram.editMessageText(
+          ctx.chat.id,
+          progress.message_id,
+          undefined,
+          `${payload.preview_text}
+
+⚠️ <b>Hozircha yuborish mumkin emas.</b> Avval qabul qiluvchilarni bog‘lang, keyin qayta yuboring.`,
+          { parse_mode: 'HTML' },
         );
       }
 
