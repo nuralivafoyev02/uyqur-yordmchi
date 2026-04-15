@@ -1237,7 +1237,7 @@ Hech kimga yuborilmadi, chunki tasdiqlangan draft ichida haqiqiy Telegram qabul 
     })
     .eq('id', jobId);
 
-  let text = `✅ <b>Taskmode topshiriqlari yuborildi</b>\n\nYuborildi: <b>${ok}</b>\nXato: <b>${fail}</b>`;
+  let text = `✅ <b>Topshiriqlar yuborildi</b>\n\nYuborildi: <b>${ok}</b>\nXato: <b>${fail}</b>`;
   if (failed.length) {
     text += `\n\n<b>Xatolar:</b>\n${failed.map((x, i) => `${i + 1}. ${escapeHTML(x)}`).join('\n')}`;
   }
@@ -1268,7 +1268,7 @@ bot.action(/taskmode_cancel_(\d+)/, async (ctx) => {
     .eq('id', jobId);
 
   await ctx.answerCbQuery('Bekor qilindi');
-  return ctx.editMessageText('❌ Taskmode draft bekor qilindi.');
+  return ctx.editMessageText('❌ Taskmode rejimi bekor qilindi.');
 });
 
 // ====== /tasks komandasi ======
@@ -1276,14 +1276,14 @@ bot.action(/taskmode_cancel_(\d+)/, async (ctx) => {
 // /tasks list -> ertangi draft tasklarni ko'rish
 // /tasks stop -> rejimdan chiqish
 bot.command('tasks', async (ctx) => {
-  if (!isPlanner(ctx.from.id)) return ctx.reply("Bu buyruq faqat mas'ul shaxs uchun.");
+  if (!isPlanner(ctx.from.id)) return ctx.reply("Bu buyruq faqat @uyqur_nurali uchun.");
 
   const args = ctx.message.text.split(' ').slice(1);
   const sub = (args[0] || '').toLowerCase();
 
   if (sub === 'stop') {
     await supabase.from('planner_state').delete().eq('creator_id', ctx.from.id);
-    return ctx.reply("✅ /tasks rejimi o'chirildi.");
+    return ctx.reply("/tasks rejimi o'chirildi✅");
   }
 
   if (sub === 'list') {
