@@ -48,6 +48,7 @@ const parseJSONEnv = (raw, fallback) => {
 const TASKMODE_COMPANY_OWNERS = parseJSONEnv(process.env.TASKMODE_COMPANY_OWNERS_JSON, {});
 const TASKMODE_ALLOWED_IDS = new Set([ADMIN_ID, ...TASK_PLANNERS]);
 const USER_CACHE_TTL_MS = 60 * 1000;
+const CLICKUP_EVENTS_TO_PROCESS = new Set(['taskCreated', 'taskUpdated', 'taskAssigneeUpdated', 'taskStatusUpdated']);
 const usersCache = {
   value: null,
   expiresAt: 0,
@@ -55,6 +56,35 @@ const usersCache = {
 
 // ====== HELPERS ======
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+const unique = (items) => [...new Set(items)];
+const truncate = (value, max = 600) => {
+  const str = typeof value === 'string' ? value : JSON.stringify(value);
+  if (!str) return '';
+  return str.length > max ? `${str.slice(0, max)}…` : str;
+};
+const safeJson = (value, max = 3000) => {
+  try {
+    return truncate(JSON.stringify(value), max);
+  } catch {
+    return truncate(String(value), max);
+  }
+};
+const serializeError = (err) => ({
+  name: err?.name || 'Error',
+  message: err?.message || String(err),
+  stack: truncate(err?.stack || '', 2000),
+  status: err?.status || null,
+  response: err?.response || null,
+});
+const logInfo = (message, meta = null) => {
+  console.log(`ℹ️ ${message}${meta ? ` | ${safeJson(meta)}` : ''}`);
+};
+const logWarn = (message, meta = null) => {
+  console.warn(`⚠️ ${message}${meta ? ` | ${safeJson(meta)}` : ''}`);
+};
+const logError = (message, meta = null) => {
+  console.error(`❌ ${message}${meta ? ` | ${safeJson(meta)}` : ''}`);
+};
 
 const escapeHTML = (str) => {
   if (!str) return '';
@@ -72,6 +102,7 @@ const chunkArray = (items, size = 2) => {
 
 const normalizePhone = (value) => String(value || '').replace(/\D+/g, '');
 const normalizeHandle = (value) => String(value || '').trim().replace(/^@+/, '').toLowerCase();
+const normalizeAssigneeId = (value) => String(value ?? '').trim();
 const normalizeCompanyKey = (value) =>
   String(value || '')
     .toLowerCase()
@@ -429,10 +460,11 @@ const upsertTaskMessageRow = async ({
   message_id,
   last_status,
 }) => {
+  const assigneeKey = normalizeAssigneeId(assignee_id);
   const { data, error } = await supabase.from('clickup_task_messages').upsert(
     {
       task_id,
-      assignee_id,
+      assignee_id: assigneeKey,
       telegram_id,
       chat_id,
       message_id,
@@ -443,22 +475,22 @@ const upsertTaskMessageRow = async ({
   );
 
   if (error) {
-    console.error('❌ Supabase upsert clickup_task_messages error:', error.message);
+    logError('Supabase upsert clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
   }
   return { data, error };
 };
 
 const getTaskMessageRow = async (task_id, assignee_id) => {
+  const assigneeKey = normalizeAssigneeId(assignee_id);
   const { data, error } = await supabase
     .from('clickup_task_messages')
     .select('task_id, assignee_id, telegram_id, chat_id, message_id, last_status')
     .eq('task_id', task_id)
-    .eq('assignee_id', assignee_id)
-    .single();
+    .eq('assignee_id', assigneeKey)
+    .maybeSingle();
 
-  // .single() "not found" holatda ham error qaytaradi (PGRST116). Bu normal.
   if (error && error.code !== 'PGRST116') {
-    console.error('❌ Supabase select clickup_task_messages error:', error.message);
+    logError('Supabase select clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
   }
   return data || null;
 };
@@ -466,13 +498,14 @@ const getTaskMessageRow = async (task_id, assignee_id) => {
 // Concurrency/Retry'larda 1 ta xabar yuborilishi uchun "reserve" qilamiz.
 // Birinchi kelgan webhook reserve qiladi, boshqalar esa skip qiladi.
 const reserveTaskMessageRow = async ({ task_id, assignee_id, telegram_id, last_status }) => {
+  const assigneeKey = normalizeAssigneeId(assignee_id);
   const { data, error } = await supabase
     .from('clickup_task_messages')
     .upsert(
       [
         {
           task_id,
-          assignee_id,
+          assignee_id: assigneeKey,
           telegram_id,
           chat_id: 0,
           message_id: 0,
@@ -485,24 +518,54 @@ const reserveTaskMessageRow = async ({ task_id, assignee_id, telegram_id, last_s
     .select('task_id');
 
   if (error) {
-    console.error('❌ Supabase reserve error:', error.message);
-    return { reserved: false, error };
+    logError('Supabase reserve clickup_task_messages error', {
+      task_id,
+      assignee_id: assigneeKey,
+      telegram_id,
+      error: serializeError(error),
+    });
+    throw error;
   }
 
-  // ignoreDuplicates bo'lsa: insert bo'lsa data.length > 0, mavjud bo'lsa []
   const reserved = Array.isArray(data) && data.length > 0;
   return { reserved, error: null };
 };
 
 const deleteTaskMessageRow = async (task_id, assignee_id) => {
+  const assigneeKey = normalizeAssigneeId(assignee_id);
   const { error } = await supabase
     .from('clickup_task_messages')
     .delete()
     .eq('task_id', task_id)
-    .eq('assignee_id', assignee_id);
-  if (error) console.error('❌ Supabase delete clickup_task_messages error:', error.message);
+    .eq('assignee_id', assigneeKey);
+  if (error) logError('Supabase delete clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
 };
 
+const getUserMapByClickUpAssignee = async (assignee) => {
+  const assigneeId = normalizeAssigneeId(assignee?.id);
+  const numericAssigneeId = Number(assigneeId);
+  const candidates = unique([
+    assigneeId,
+    Number.isFinite(numericAssigneeId) ? numericAssigneeId : null,
+  ].filter((value) => value !== null && value !== ''));
+
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from('users_mapping')
+      .select('telegram_id, full_name, clickup_user_id')
+      .eq('clickup_user_id', candidate)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      logError('users_mapping select error', { assignee_id: assigneeId, candidate, error: serializeError(error) });
+      continue;
+    }
+
+    if (data?.telegram_id) return data;
+  }
+
+  return null;
+};
 
 // ClickUp API Helper
 const clickupRequest = async (endpoint, method = 'GET', body = null) => {
@@ -533,6 +596,8 @@ const clickupRequest = async (endpoint, method = 'GET', body = null) => {
     const err = new Error(`ClickUp API error ${res.status}: ${msg}`);
     err.status = res.status;
     err.response = data;
+    err.endpoint = endpoint;
+    err.method = method;
     throw err;
   }
 
@@ -543,6 +608,70 @@ const clickupRequest = async (endpoint, method = 'GET', body = null) => {
 const getHeader = (req, name) => {
   const key = name.toLowerCase();
   return req?.headers?.[key] || req?.headers?.[name] || null;
+};
+
+const sendJson = (res, status, payload) => {
+  if (typeof res.json === 'function') return res.status(status).json(payload);
+  return res.status(status).send(JSON.stringify(payload));
+};
+
+const getRequestMeta = (req) => ({
+  method: req?.method || null,
+  url: req?.url || null,
+  content_type: getHeader(req, 'content-type') || null,
+  has_clickup_signature: Boolean(getHeader(req, 'x-signature')),
+  has_telegram_secret: Boolean(getHeader(req, 'x-telegram-bot-api-secret-token')),
+  user_agent: getHeader(req, 'user-agent') || null,
+});
+
+const getClickUpHistoryFields = (payload = {}) => {
+  if (!Array.isArray(payload.history_items)) return [];
+  return unique(payload.history_items.map((item) => String(item?.field || '').trim()).filter(Boolean));
+};
+
+const buildClickUpPayloadSummary = (payload = {}) => ({
+  webhook_id: payload?.webhook_id || null,
+  event: payload?.event || null,
+  task_id: payload?.task_id || null,
+  history_fields: getClickUpHistoryFields(payload),
+  history_count: Array.isArray(payload?.history_items) ? payload.history_items.length : 0,
+});
+
+const isClickUpWebhookRequest = (req) => {
+  const body = req?.body;
+  if (body && typeof body === 'object' && (body.webhook_id || body.event || body.task_id || Array.isArray(body.history_items))) {
+    return true;
+  }
+  return Boolean(getHeader(req, 'x-signature'));
+};
+
+const shouldSendInitialTaskMessage = (payload = {}) => {
+  const event = String(payload?.event || '');
+  if (event === 'taskCreated' || event === 'taskAssigneeUpdated' || event === 'taskStatusUpdated') return true;
+  if (event !== 'taskUpdated') return false;
+
+  const fields = getClickUpHistoryFields(payload);
+  return fields.some((field) => ['assignee_add', 'status', 'name', 'priority'].includes(field));
+};
+
+const extractWebhookAssignees = (payload = {}) => {
+  const items = Array.isArray(payload?.history_items) ? payload.history_items : [];
+  const byId = new Map();
+
+  for (const item of items) {
+    if (String(item?.field || '') !== 'assignee_add') continue;
+    const after = item?.after;
+    const assigneeId = normalizeAssigneeId(after?.id);
+    if (!assigneeId) continue;
+    byId.set(assigneeId, {
+      id: assigneeId,
+      username: after?.username || null,
+      email: after?.email || null,
+      source: 'history.assignee_add',
+    });
+  }
+
+  return [...byId.values()];
 };
 
 const verifyClickUpSignature = (req) => {
@@ -587,53 +716,83 @@ const verifyTelegramSecret = (req) => {
 
 // ====== CLICKUP WEBHOOK HANDLER ======
 async function handleClickUpWebhook(req) {
-  const { event, task_id } = req.body || {};
+  const payload = req.body || {};
+  const { event, task_id } = payload;
 
-  // ClickUp'dan ko'p event keladi: taskCreated / taskUpdated / taskAssigneeUpdated
-  if (event !== 'taskCreated' && event !== 'taskUpdated' && event !== 'taskAssigneeUpdated') return;
-  if (!task_id) return;
+  if (!CLICKUP_EVENTS_TO_PROCESS.has(String(event || ''))) {
+    logInfo('ClickUp webhook skipped: unsupported event', buildClickUpPayloadSummary(payload));
+    return { ok: true, skipped: true, reason: 'unsupported_event', event: event || null };
+  }
 
-  // Task data'ni olib kelamiz (assignee ba'zan kechikib keladi)
+  if (!task_id) {
+    logWarn('ClickUp webhook skipped: task_id missing', buildClickUpPayloadSummary(payload));
+    return { ok: true, skipped: true, reason: 'task_id_missing', event: event || null };
+  }
+
   let task;
   for (let i = 0; i < 3; i++) {
     try {
       task = await clickupRequest(`task/${task_id}`);
     } catch (err) {
-      console.error(`❌ ClickUp task fetch error (${task_id}):`, err?.message || err);
-      return;
+      logError('ClickUp task fetch error', { task_id, attempt: i + 1, event, error: serializeError(err) });
+      if (i === 2) throw err;
+      await delay(500);
+      continue;
     }
+
     if (task?.assignees?.length) break;
     await delay(800);
   }
 
-  if (!task?.assignees?.length) {
-    console.log(`⚠️ Assignee topilmadi (task ${task_id})`);
-    return;
+  const assignees = task?.assignees?.length ? task.assignees : extractWebhookAssignees(payload);
+  if (!assignees?.length) {
+    logWarn('ClickUp webhook skipped: assignee topilmadi', {
+      ...buildClickUpPayloadSummary(payload),
+      task_status: task?.status?.status || null,
+      task_name: task?.name || null,
+    });
+    return { ok: true, skipped: true, reason: 'assignee_missing', event, task_id };
   }
 
   const nowKey = statusKeyOf(task?.status?.status);
+  const summary = {
+    ...buildClickUpPayloadSummary(payload),
+    task_name: task?.name || null,
+    task_status: task?.status?.status || null,
+    assignee_ids: assignees.map((assignee) => normalizeAssigneeId(assignee?.id)).filter(Boolean),
+  };
+  logInfo('ClickUp webhook processing start', summary);
 
-  for (const assignee of task.assignees) {
-    // mapping: ClickUp user id -> telegram id
-    const { data: userMap, error: mapErr } = await supabase
-      .from('users_mapping')
-      .select('telegram_id')
-      .eq('clickup_user_id', assignee.id)
-      .single();
+  const result = { ok: true, event, task_id, sent: [], updated: [], skipped: [], unmapped: [] };
 
-    if (mapErr && mapErr.code !== 'PGRST116') {
-      console.error('❌ users_mapping select error:', mapErr.message);
+  for (const assignee of assignees) {
+    const assigneeId = normalizeAssigneeId(assignee?.id);
+    if (!assigneeId) {
+      result.skipped.push({ reason: 'assignee_id_missing' });
+      continue;
     }
-    if (!userMap?.telegram_id) continue;
+
+    const userMap = await getUserMapByClickUpAssignee(assignee);
+    if (!userMap?.telegram_id) {
+      const unmappedInfo = {
+        task_id,
+        event,
+        assignee_id: assigneeId,
+        assignee_username: assignee?.username || null,
+        assignee_email: assignee?.email || null,
+      };
+      result.unmapped.push(unmappedInfo);
+      logWarn('ClickUp assignee uchun users_mapping topilmadi', unmappedInfo);
+      continue;
+    }
 
     const telegramId = userMap.telegram_id;
+    const row = await getTaskMessageRow(task_id, assigneeId);
 
-    // 1) Agar oldin yuborilgan bo'lsa — xabarni EDIT qilamiz
-    let row = await getTaskMessageRow(task_id, assignee.id);
-
-    // Agar row bor-u, lekin message_id/chat_id 0 bo'lsa — boshqa webhook send qilayotgan bo'lishi mumkin.
     if (row && (!row.chat_id || !row.message_id)) {
-      console.log(`⏳ Pending send (skip) task ${task_id} assignee ${assignee.id}`);
+      const pendingInfo = { task_id, event, assignee_id: assigneeId };
+      result.skipped.push({ ...pendingInfo, reason: 'pending_send' });
+      logInfo('ClickUp webhook pending send, skip', pendingInfo);
       continue;
     }
 
@@ -651,48 +810,47 @@ async function handleClickUpWebhook(req) {
 
           await upsertTaskMessageRow({
             task_id,
-            assignee_id: assignee.id,
+            assignee_id: assigneeId,
             telegram_id: telegramId,
             chat_id: row.chat_id,
             message_id: row.message_id,
             last_status: nowKey,
           });
 
-          console.log(`♻️ Updated TG msg for task ${task_id} (${prevKey} -> ${nowKey})`);
+          result.updated.push({ task_id, assignee_id: assigneeId, telegram_id: telegramId, from: prevKey, to: nowKey });
+          logInfo('ClickUp task Telegram message updated', { task_id, assignee_id: assigneeId, telegram_id: telegramId, from: prevKey, to: nowKey });
         } catch (err) {
           const msg = err?.response?.description || err?.message || String(err);
-          // "message is not modified" bo'lsa jim o'tamiz
           if (!String(msg).toLowerCase().includes('message is not modified')) {
-            console.error(`❌ Telegram edit error (task ${task_id}):`, msg);
+            logError('Telegram edit error', { task_id, assignee_id: assigneeId, telegram_id: telegramId, error: serializeError(err) });
           }
         }
       } else {
-        console.log(`ℹ️ No status change for task ${task_id} (${nowKey})`);
+        result.skipped.push({ task_id, assignee_id: assigneeId, reason: 'no_status_change', status: nowKey });
+        logInfo('ClickUp task status unchanged, skip edit', { task_id, assignee_id: assigneeId, status: nowKey });
       }
       continue;
     }
 
-    // 2) Row yo'q bo'lsa — yangi xabar faqat taskCreated / taskAssigneeUpdated event'larda yuboriladi.
-    // taskUpdated kelib qolsa (retry/parallel) — dubllar chiqmasin deb SKIP qilamiz.
-    if (event === 'taskUpdated') {
-      console.log(`⛔ Skip sending on taskUpdated (no row yet): task ${task_id}`);
+    if (!shouldSendInitialTaskMessage(payload)) {
+      result.skipped.push({ task_id, assignee_id: assigneeId, reason: 'initial_send_not_allowed_for_event', event });
+      logInfo('ClickUp initial send skipped by event policy', { task_id, assignee_id: assigneeId, event, history_fields: getClickUpHistoryFields(payload) });
       continue;
     }
 
-    // 3) Concurrency/Retry'da 1 marta yuborish uchun reserve qilamiz
     const { reserved } = await reserveTaskMessageRow({
       task_id,
-      assignee_id: assignee.id,
+      assignee_id: assigneeId,
       telegram_id: telegramId,
       last_status: nowKey,
     });
 
     if (!reserved) {
-      console.log(`⛔ Duplicate notify (reserved already): ${task_id}:${assignee.id}`);
+      result.skipped.push({ task_id, assignee_id: assigneeId, reason: 'duplicate_reserved' });
+      logInfo('ClickUp duplicate notify skipped', { task_id, assignee_id: assigneeId, telegram_id: telegramId });
       continue;
     }
 
-    // 4) Birinchi bo'lib reserve qilganimiz uchun endi SEND qilamiz
     const text = buildTaskText(task);
     const keyboard = buildTaskKeyboard(task_id, nowKey);
 
@@ -705,21 +863,32 @@ async function handleClickUpWebhook(req) {
 
       await upsertTaskMessageRow({
         task_id,
-        assignee_id: assignee.id,
+        assignee_id: assigneeId,
         telegram_id: telegramId,
         chat_id: msg.chat.id,
         message_id: msg.message_id,
         last_status: nowKey,
       });
 
-      console.log(`✅ Task ${task_id} → TG ${telegramId} (msg_id=${msg.message_id})`);
+      result.sent.push({ task_id, assignee_id: assigneeId, telegram_id: telegramId, message_id: msg.message_id, status: nowKey });
+      logInfo('ClickUp task Telegram message sent', { task_id, assignee_id: assigneeId, telegram_id: telegramId, message_id: msg.message_id, status: nowKey });
     } catch (err) {
-      const em = err?.response?.description || err?.message || String(err);
-      console.error(`❌ Telegram send error (task ${task_id}):`, em);
-      // send fail bo'lsa reserve row'ni o'chirib tashlaymiz (ClickUp retry kelganda qayta yuborishi mumkin)
-      await deleteTaskMessageRow(task_id, assignee.id);
+      await deleteTaskMessageRow(task_id, assigneeId);
+      logError('Telegram send error', { task_id, assignee_id: assigneeId, telegram_id: telegramId, error: serializeError(err) });
+      throw err;
     }
   }
+
+  logInfo('ClickUp webhook processing finished', {
+    task_id,
+    event,
+    sent: result.sent.length,
+    updated: result.updated.length,
+    skipped: result.skipped.length,
+    unmapped: result.unmapped.length,
+  });
+
+  return result;
 }
 
 // ====== TELEGRAM COMMANDS ======
@@ -1964,10 +2133,27 @@ bot.command('top', async (ctx) => {
 module.exports = async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const job = url.searchParams.get('job');
+  const requestMeta = getRequestMeta(req);
 
-  // ====== CRON / JOBS (GET) ======
   if (req.method === 'GET' && job) {
     try {
+      if (job === 'health') {
+        return sendJson(res, 200, {
+          ok: true,
+          runtime: 'vercel-node',
+          has_bot_token: Boolean(process.env.BOT_TOKEN),
+          has_supabase_url: Boolean(process.env.SUPABASE_URL),
+          has_supabase_key: Boolean(process.env.SUPABASE_KEY),
+          has_clickup_token: Boolean(process.env.CLICKUP_TOKEN),
+          has_clickup_webhook_secret: Boolean(process.env.CLICKUP_WEBHOOK_SECRET),
+          clickup_webhook_verify: process.env.CLICKUP_WEBHOOK_VERIFY === 'true',
+          has_telegram_webhook_secret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
+          telegram_webhook_verify: process.env.TELEGRAM_WEBHOOK_VERIFY === 'true',
+          request: requestMeta,
+          now: new Date().toISOString(),
+        });
+      }
+
       if (job === 'monthly_leaderboard') {
         const expected = process.env.CRON_SECRET;
         if (expected) {
@@ -1976,36 +2162,44 @@ module.exports = async (req, res) => {
         }
 
         const result = await sendMonthlyLeaderboardToBoss();
-        if (typeof res.json === 'function') return res.status(200).json(result);
-        return res.status(200).send(JSON.stringify(result));
+        return sendJson(res, 200, result);
       }
 
       return res.status(404).send('Unknown job');
     } catch (err) {
-      console.error('Cron/job handler error:', err?.message || err);
+      logError('Cron/job handler error', { job, request: requestMeta, error: serializeError(err) });
       return res.status(500).send('Cron error');
     }
   }
 
-  // ====== WEBHOOKS (POST) ======
   if (req.method === 'POST') {
-    try {
-      // ⚠️ AGAR BU CLICKUP WEBHOOK BO'LSA
-      if (req.body && req.body.webhook_id) {
-        // Optional signature verification (strict mode via env)
+    if (isClickUpWebhookRequest(req)) {
+      const clickupSummary = buildClickUpPayloadSummary(req.body || {});
+      logInfo('Incoming ClickUp webhook', { request: requestMeta, payload: clickupSummary });
+
+      try {
         const ok = verifyClickUpSignature(req);
         if (!ok) {
-          console.warn('⚠️ ClickUp signature verification failed');
+          logWarn('ClickUp signature verification failed', { request: requestMeta, payload: clickupSummary });
           return res.status(401).send('Invalid signature');
         }
-        await handleClickUpWebhook(req);
-        return res.status(200).send('OK');
-      }
 
-      // ⚠️ AGAR BU TELEGRAM XABARI BO'LSA
+        const result = await handleClickUpWebhook(req);
+        return sendJson(res, 200, result);
+      } catch (err) {
+        logError('ClickUp webhook handler failed', {
+          request: requestMeta,
+          payload: clickupSummary,
+          error: serializeError(err),
+        });
+        return sendJson(res, 500, { ok: false, source: 'clickup', error: err?.message || 'ClickUp webhook processing failed' });
+      }
+    }
+
+    try {
       const tgOk = verifyTelegramSecret(req);
       if (!tgOk) {
-        console.warn('⚠️ Telegram secret token verification failed');
+        logWarn('Telegram secret token verification failed', { request: requestMeta });
         return res.status(401).send('Invalid telegram secret');
       }
 
@@ -2016,14 +2210,13 @@ module.exports = async (req, res) => {
           buildWelcomeText(msg?.from?.first_name || 'foydalanuvchi'),
           { parse_mode: 'HTML' },
         );
-        if (typeof res.json === 'function') return res.status(200).json(payload);
-        return res.status(200).send(JSON.stringify(payload));
+        return sendJson(res, 200, payload);
       }
 
       await bot.handleUpdate(req.body);
       return res.status(200).send('OK');
     } catch (err) {
-      console.error('Main Handler Error:', err);
+      logError('Telegram/main handler error', { request: requestMeta, error: serializeError(err) });
       return res.status(200).send('OK');
     }
   }
