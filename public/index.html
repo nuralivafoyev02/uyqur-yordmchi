@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="uz">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -11,1158 +12,1310 @@
       try {
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-      } catch {}
+      } catch { }
     })();
   </script>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  </head>
-  <style>
-        :root{
-      /* Theme follows: Telegram theme (if any) → system theme (prefers-color-scheme) */
-      color-scheme: dark;
+</head>
+<style>
+  :root {
+    /* Theme follows: Telegram theme (if any) → system theme (prefers-color-scheme) */
+    color-scheme: dark;
 
-      /* Telegram palette (with solid fallbacks) */
-      --tg-bg: var(--tg-theme-bg-color, #0b0f14);
-      --tg-text: var(--tg-theme-text-color, #e9eef7);
-      --tg-hint: var(--tg-theme-hint-color, #8b94a7);
-      --tg-link: var(--tg-theme-link-color, #4ea4ff);
-      --tg-button: var(--tg-theme-button-color, #4ea4ff);
-      --tg-button-text: var(--tg-theme-button-text-color, #0b0f14);
-      --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #101722);
+    /* Telegram palette (with solid fallbacks) */
+    --tg-bg: var(--tg-theme-bg-color, #0b0f14);
+    --tg-text: var(--tg-theme-text-color, #e9eef7);
+    --tg-hint: var(--tg-theme-hint-color, #8b94a7);
+    --tg-link: var(--tg-theme-link-color, #4ea4ff);
+    --tg-button: var(--tg-theme-button-color, #4ea4ff);
+    --tg-button-text: var(--tg-theme-button-text-color, #0b0f14);
+    --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #101722);
 
-      /* Accent (overridden from Telegram via JS when possible) */
-      --accent: var(--tg-button);
-      --accent-rgb: 78 164 255;
+    /* Accent (overridden from Telegram via JS when possible) */
+    --accent: var(--tg-button);
+    --accent-rgb: 78 164 255;
 
-      /* Surfaces */
-      --surface-00: rgba(255,255,255,.03);
-      --surface-0: rgba(255,255,255,.04);
-      --surface: rgba(255,255,255,.06);
-      --surface-2: rgba(255,255,255,.08);
+    /* Surfaces */
+    --surface-00: rgba(255, 255, 255, .03);
+    --surface-0: rgba(255, 255, 255, .04);
+    --surface: rgba(255, 255, 255, .06);
+    --surface-2: rgba(255, 255, 255, .08);
 
-      --card: rgba(255,255,255,.05);
+    --card: rgba(255, 255, 255, .05);
 
-      /* Borders & shadows */
-      --border-soft: rgba(255,255,255,.08);
-      --border: rgba(255,255,255,.10);
-      --border-strong: rgba(255,255,255,.12);
+    /* Borders & shadows */
+    --border-soft: rgba(255, 255, 255, .08);
+    --border: rgba(255, 255, 255, .10);
+    --border-strong: rgba(255, 255, 255, .12);
 
-      --shadow: 0 14px 40px rgba(0,0,0,.35);
-      --shadow-raise: 0 18px 40px rgba(0,0,0,.45);
-      --shadow-xl: 0 22px 60px rgba(0,0,0,.55);
+    --shadow: 0 14px 40px rgba(0, 0, 0, .35);
+    --shadow-raise: 0 18px 40px rgba(0, 0, 0, .45);
+    --shadow-xl: 0 22px 60px rgba(0, 0, 0, .55);
 
-      /* Text opacities */
-      --fg-95: rgba(255,255,255,.95);
-      --fg-92: rgba(255,255,255,.92);
-      --fg-88: rgba(255,255,255,.88);
-      --fg-86: rgba(255,255,255,.86);
-      --fg-85: rgba(255,255,255,.85);
-      --fg-55: rgba(255,255,255,.55);
-      --fg-35: rgba(255,255,255,.35);
+    /* Text opacities */
+    --fg-95: rgba(255, 255, 255, .95);
+    --fg-92: rgba(255, 255, 255, .92);
+    --fg-88: rgba(255, 255, 255, .88);
+    --fg-86: rgba(255, 255, 255, .86);
+    --fg-85: rgba(255, 255, 255, .85);
+    --fg-55: rgba(255, 255, 255, .55);
+    --fg-35: rgba(255, 255, 255, .35);
 
-      /* Overlay / elevated */
-      --elevated-bg: rgba(16, 23, 34, .96);
-      --overlay: rgba(0,0,0,.55);
+    /* Overlay / elevated */
+    --elevated-bg: rgba(16, 23, 34, .96);
+    --overlay: rgba(0, 0, 0, .55);
 
-      /* Gradients */
-      --topbar-grad-1: rgba(0,0,0,.35);
-      --topbar-grad-2: rgba(0,0,0,0);
-      --bottom-grad-1: rgba(0,0,0,0);
-      --bottom-grad-2: rgba(0,0,0,.50);
+    /* Gradients */
+    --topbar-grad-1: rgba(0, 0, 0, .35);
+    --topbar-grad-2: rgba(0, 0, 0, 0);
+    --bottom-grad-1: rgba(0, 0, 0, 0);
+    --bottom-grad-2: rgba(0, 0, 0, .50);
 
-      /* Skeleton */
-      --skeleton-a: rgba(255,255,255,.04);
-      --skeleton-b: rgba(255,255,255,.08);
+    /* Skeleton */
+    --skeleton-a: rgba(255, 255, 255, .04);
+    --skeleton-b: rgba(255, 255, 255, .08);
 
-      /* Layout */
-      --radius: 18px;
-      --radius-lg: 22px;
+    /* Layout */
+    --radius: 18px;
+    --radius-lg: 22px;
 
-      --ok: rgba(63, 214, 140, 1);
-      --warn: rgba(255, 204, 0, 1);
-      --bad: rgba(255, 92, 92, 1);
+    --ok: rgba(63, 214, 140, 1);
+    --warn: rgba(255, 204, 0, 1);
+    --bad: rgba(255, 92, 92, 1);
 
-      --pad: 14px;
-      --pad-lg: 18px;
+    --pad: 14px;
+    --pad-lg: 18px;
 
-      --fs-xxl: 18px;
-      --fs-xl: 16px;
-      --fs-md: 14px;
-      --fs-sm: 12px;
+    --fs-xxl: 18px;
+    --fs-xl: 16px;
+    --fs-md: 14px;
+    --fs-sm: 12px;
 
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+
+    --tg-bg: var(--tg-theme-bg-color, #f6f7fb);
+    --tg-text: var(--tg-theme-text-color, #0b1320);
+    --tg-hint: var(--tg-theme-hint-color, #667085);
+    --tg-link: var(--tg-theme-link-color, #0b69ff);
+    --tg-button: var(--tg-theme-button-color, #0b69ff);
+    --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+    --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+
+    --accent: var(--tg-button);
+
+    --surface-00: rgba(11, 19, 32, .02);
+    --surface-0: rgba(11, 19, 32, .03);
+    --surface: rgba(11, 19, 32, .04);
+    --surface-2: rgba(11, 19, 32, .06);
+
+    --card: rgba(11, 19, 32, .03);
+
+    --border-soft: rgba(11, 19, 32, .08);
+    --border: rgba(11, 19, 32, .10);
+    --border-strong: rgba(11, 19, 32, .12);
+
+    --shadow: 0 14px 40px rgba(11, 19, 32, .10);
+    --shadow-raise: 0 18px 40px rgba(11, 19, 32, .14);
+    --shadow-xl: 0 22px 60px rgba(11, 19, 32, .18);
+
+    --fg-95: rgba(11, 19, 32, .95);
+    --fg-92: rgba(11, 19, 32, .92);
+    --fg-88: rgba(11, 19, 32, .88);
+    --fg-86: rgba(11, 19, 32, .86);
+    --fg-85: rgba(11, 19, 32, .85);
+    --fg-55: rgba(11, 19, 32, .55);
+    --fg-35: rgba(11, 19, 32, .35);
+
+    --elevated-bg: rgba(255, 255, 255, .96);
+    --overlay: rgba(11, 19, 32, .40);
+
+    --topbar-grad-1: rgba(255, 255, 255, .80);
+    --topbar-grad-2: rgba(255, 255, 255, 0);
+    --bottom-grad-1: rgba(255, 255, 255, 0);
+    --bottom-grad-2: rgba(255, 255, 255, .78);
+
+    --skeleton-a: rgba(11, 19, 32, .04);
+    --skeleton-b: rgba(11, 19, 32, .08);
+  }
+
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--tg-bg);
+    color: var(--tg-text);
+  }
+
+  .app {
+    max-width: 820px;
+    margin: 0 auto;
+    padding-bottom: 88px;
+    /* bottom bar */
+  }
+
+  /* Topbar */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(180deg, var(--topbar-grad-1), var(--topbar-grad-2)), var(--tg-bg);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border-soft);
+    padding: 12px var(--pad);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .title {
+    font-weight: 900;
+    letter-spacing: .2px;
+    font-size: var(--fs-xl);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .subtitle {
+    margin-top: 4px;
+    color: var(--tg-hint);
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .iconBtn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--tg-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .iconBtn:active {
+    transform: scale(.98);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--tg-text);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .badge.hidden {
+    display: none;
+  }
+
+  .badge.ok {
+    border-color: rgba(63, 214, 140, .28);
+    background: rgba(63, 214, 140, .10);
+    color: rgba(190, 255, 220, 1);
+  }
+
+  .badge.warn {
+    border-color: rgba(255, 204, 0, .30);
+    background: rgba(255, 204, 0, .10);
+    color: rgba(255, 240, 190, 1);
+  }
+
+  .badge.bad {
+    border-color: rgba(255, 92, 92, .30);
+    background: rgba(255, 92, 92, .10);
+    color: rgba(255, 205, 205, 1);
+  }
+
+  .badge.mini {
+    font-weight: 800;
+    font-size: 10px;
+    padding: 4px 8px;
+    opacity: .95;
+  }
+
+  /* Tabs */
+  .tabs {
+    padding: 10px var(--pad);
+    display: flex;
+    gap: 10px;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 10px;
+    border-radius: 14px;
+    background: var(--card);
+    border: 1px solid var(--border-soft);
+    font-weight: 900;
+    font-size: 13px;
+    color: var(--fg-85);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tab.active {
+    background: rgb(var(--accent-rgb) / 0.14);
+    border-color: rgb(var(--accent-rgb) / 0.30);
+    color: var(--tg-text);
+  }
+
+  /* Sections */
+  .view {
+    padding: 0 var(--pad);
+  }
+
+  .section {
+    padding: 10px 0;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .mini {
+    font-size: 11px;
+    color: var(--tg-hint);
+    font-weight: 800;
+  }
+
+  .tiny {
+    font-size: 12px;
+    color: var(--tg-hint);
+    line-height: 1.35;
+  }
+
+  .input {
+    width: 100%;
+    border-radius: 14px;
+    padding: 12px 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--tg-text);
+    outline: none;
+    font-size: 14px;
+  }
+
+  .input::placeholder {
+    color: var(--fg-35);
+  }
+
+  .input:focus {
+    border-color: rgb(var(--accent-rgb) / 0.35);
+    background: var(--surface-2);
+  }
+
+  .split {
+    display: flex;
+    gap: 10px;
+  }
+
+  .split>div {
+    flex: 1;
+  }
+
+  .pillRow {
+    display: flex;
+    gap: 10px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .pillRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pill {
+    padding: 9px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+    user-select: none;
+    cursor: pointer;
+    color: var(--fg-86);
+  }
+
+  .pill.active {
+    background: rgb(var(--accent-rgb) / 0.14);
+    border-color: rgb(var(--accent-rgb) / 0.30);
+    color: var(--tg-text);
+  }
+
+  /* Cards */
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .card {
+    border-radius: 22px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+
+  .cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .cardTitle {
+    font-weight: 950;
+    font-size: 13px;
+    color: var(--fg-88);
+  }
+
+  .cardMeta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  textarea.textarea {
+    width: 100%;
+    min-height: 44px;
+    resize: none;
+    border-radius: 14px;
+    padding: 12px 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--tg-text);
+    outline: none;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  textarea.textarea:focus {
+    border-color: rgb(var(--accent-rgb) / 0.35);
+    background: var(--surface-2);
+  }
+
+  .cardFooter {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
+  .btn {
+    border-radius: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg-92);
+    cursor: pointer;
+    font-weight: 900;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:active {
+    transform: scale(.99);
+  }
+
+  .btnPrimary {
+    background: rgb(var(--accent-rgb) / 0.20);
+    border-color: rgb(var(--accent-rgb) / 0.30);
+    color: var(--tg-text);
+  }
+
+  .btnDanger {
+    background: rgba(255, 92, 92, .12);
+    border-color: rgba(255, 92, 92, .25);
+    color: rgba(255, 210, 210, 1);
+  }
+
+  .btnGhost {
+    background: var(--surface-0);
+    border-color: var(--border);
+    color: var(--fg-86);
+  }
+
+  .btn[disabled] {
+    opacity: .5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 28px 18px;
+    color: var(--tg-hint);
+    border-radius: 22px;
+    border: 1px dashed var(--border-strong);
+    background: var(--surface-00);
+    line-height: 1.4;
+  }
+
+  .skeleton {
+    height: 92px;
+    border-radius: 22px;
+    border: 1px solid var(--border-soft);
+    background: linear-gradient(90deg, var(--skeleton-a), var(--skeleton-b), var(--skeleton-a));
+    background-size: 200% 200%;
+    animation: shimmer 1.2s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 0%;
     }
 
-    :root[data-theme="light"]{
-      color-scheme: light;
-
-      --tg-bg: var(--tg-theme-bg-color, #f6f7fb);
-      --tg-text: var(--tg-theme-text-color, #0b1320);
-      --tg-hint: var(--tg-theme-hint-color, #667085);
-      --tg-link: var(--tg-theme-link-color, #0b69ff);
-      --tg-button: var(--tg-theme-button-color, #0b69ff);
-      --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
-      --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #ffffff);
-
-      --accent: var(--tg-button);
-
-      --surface-00: rgba(11, 19, 32, .02);
-      --surface-0: rgba(11, 19, 32, .03);
-      --surface: rgba(11, 19, 32, .04);
-      --surface-2: rgba(11, 19, 32, .06);
-
-      --card: rgba(11, 19, 32, .03);
-
-      --border-soft: rgba(11, 19, 32, .08);
-      --border: rgba(11, 19, 32, .10);
-      --border-strong: rgba(11, 19, 32, .12);
-
-      --shadow: 0 14px 40px rgba(11, 19, 32, .10);
-      --shadow-raise: 0 18px 40px rgba(11, 19, 32, .14);
-      --shadow-xl: 0 22px 60px rgba(11, 19, 32, .18);
-
-      --fg-95: rgba(11, 19, 32, .95);
-      --fg-92: rgba(11, 19, 32, .92);
-      --fg-88: rgba(11, 19, 32, .88);
-      --fg-86: rgba(11, 19, 32, .86);
-      --fg-85: rgba(11, 19, 32, .85);
-      --fg-55: rgba(11, 19, 32, .55);
-      --fg-35: rgba(11, 19, 32, .35);
-
-      --elevated-bg: rgba(255,255,255,.96);
-      --overlay: rgba(11, 19, 32, .40);
-
-      --topbar-grad-1: rgba(255,255,255,.80);
-      --topbar-grad-2: rgba(255,255,255,0);
-      --bottom-grad-1: rgba(255,255,255,0);
-      --bottom-grad-2: rgba(255,255,255,.78);
-
-      --skeleton-a: rgba(11, 19, 32, .04);
-      --skeleton-b: rgba(11, 19, 32, .08);
+    100% {
+      background-position: -200% 0%;
     }
+  }
 
+  .hintLine {
+    margin-top: 12px;
+    color: var(--fg-55);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 12px 14px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-00);
+    border-radius: 22px;
+  }
 
-    *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body{ height: 100%; }
-    body{
-      margin: 0;
-      font-family: var(--sans);
-      background: var(--tg-bg);
-      color: var(--tg-text);
-    }
+  a {
+    color: var(--tg-link);
+  }
 
-    .app{
-      max-width: 820px;
-      margin: 0 auto;
-      padding-bottom: 88px; /* bottom bar */
-    }
+  /* Bottom bar */
+  .bottomBar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding: 12px var(--pad);
+    background: linear-gradient(180deg, var(--bottom-grad-1), var(--bottom-grad-2)), var(--tg-bg);
+    border-top: 1px solid var(--border-soft);
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
 
-    /* Topbar */
-    .topbar{
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: linear-gradient(180deg, var(--topbar-grad-1), var(--topbar-grad-2)) , var(--tg-bg);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--border-soft);
-      padding: 12px var(--pad);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
+  .cta {
+    flex: 1;
+    max-width: 420px;
+    text-align: center;
+    padding: 12px 14px;
+    border-radius: 16px;
+    font-weight: 950;
+    letter-spacing: .2px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    user-select: none;
+    color: var(--fg-92);
+  }
 
-    .brand{ min-width: 0; }
-    .title{
-      font-weight: 900;
-      letter-spacing: .2px;
-      font-size: var(--fs-xl);
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .subtitle{
-      margin-top: 4px;
-      color: var(--tg-hint);
-      font-size: var(--fs-sm);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+  .cta.primary {
+    background: rgb(var(--accent-rgb) / 0.22);
+    border-color: rgb(var(--accent-rgb) / 0.32);
+    color: var(--tg-text);
+  }
 
-    .topActions{
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      flex-shrink: 0;
+  .cta[aria-disabled="true"] {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 92px;
+    z-index: 50;
+    min-width: 240px;
+    max-width: min(520px, 92vw);
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--elevated-bg);
+    color: var(--fg-95);
+    box-shadow: var(--shadow-raise);
+    display: none;
+    font-weight: 850;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .toast.show {
+    display: block;
+    animation: toastIn .14s ease-out;
+  }
+
+  .toast.ok {
+    border-color: rgba(63, 214, 140, .25);
+  }
+
+  .toast.warn {
+    border-color: rgba(255, 204, 0, .25);
+  }
+
+  .toast.bad {
+    border-color: rgba(255, 92, 92, .25);
+  }
+
+  @keyframes toastIn {
+    from {
+      transform: translateX(-50%) translateY(8px);
+      opacity: 0;
     }
 
-    .iconBtn{
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--tg-text);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      cursor:pointer;
+    to {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
     }
-    .iconBtn:active{ transform: scale(.98); }
+  }
 
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap: 6px;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border-strong);
-      background: var(--surface);
-      color: var(--tg-text);
-      font-size: 11px;
-      font-weight: 800;
-    }
-    .badge.hidden{ display:none; }
-    .badge.ok{ border-color: rgba(63,214,140,.28); background: rgba(63,214,140,.10); color: rgba(190,255,220,1);}
-    .badge.warn{ border-color: rgba(255,204,0,.30); background: rgba(255,204,0,.10); color: rgba(255,240,190,1);}
-    .badge.bad{ border-color: rgba(255,92,92,.30); background: rgba(255,92,92,.10); color: rgba(255,205,205,1);}
-    .badge.mini{ font-weight: 800; font-size: 10px; padding: 4px 8px; opacity: .95; }
+  /* Modal */
+  .modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: var(--overlay);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
 
-    /* Tabs */
-    .tabs{
-      padding: 10px var(--pad);
-      display:flex;
-      gap: 10px;
-    }
-    .tab{
-      flex: 1;
-      text-align:center;
-      padding: 10px 10px;
-      border-radius: 14px;
-      background: var(--card);
-      border: 1px solid var(--border-soft);
-      font-weight: 900;
-      font-size: 13px;
-      color: var(--fg-85);
-      cursor:pointer;
-      user-select:none;
-    }
-    .tab.active{
-      background: rgb(var(--accent-rgb) / 0.14);
-      border-color: rgb(var(--accent-rgb) / 0.30);
-      color: var(--tg-text);
-    }
+  .modalOverlay.show {
+    display: flex;
+  }
 
-    /* Sections */
-    .view{ padding: 0 var(--pad); }
-    .section{ padding: 10px 0; }
-    .hidden{ display:none !important; }
+  .modal {
+    width: min(720px, 92vw);
+    border-radius: 22px;
+    border: 1px solid var(--border-strong);
+    background: var(--elevated-bg);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+  }
 
-    .row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-    }
-    .mini{ font-size: 11px; color: var(--tg-hint); font-weight: 800; }
-    .tiny{ font-size: 12px; color: var(--tg-hint); line-height: 1.35; }
+  .modalHead {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
 
-    .input{
-      width: 100%;
-      border-radius: 14px;
-      padding: 12px 12px;
-      border: 1px solid var(--border-strong);
-      background: var(--surface);
-      color: var(--tg-text);
-      outline: none;
-      font-size: 14px;
-    }
-    .input::placeholder{ color: var(--fg-35); }
-    .input:focus{ border-color: rgb(var(--accent-rgb) / 0.35); background: var(--surface-2); }
+  .modalTitle {
+    font-weight: 950;
+  }
 
-    .split{ display:flex; gap: 10px; }
-    .split > div{ flex:1; }
+  .modalBody {
+    padding: 14px 16px;
+  }
 
-    .pillRow{
-      display:flex;
-      gap: 10px;
-      overflow:auto;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: 2px;
-      scrollbar-width: none;
-    }
-    .pillRow::-webkit-scrollbar{ display:none; }
+  .modalActions {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border-soft);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
 
-    .pill{
-      padding: 9px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      font-size: 12px;
-      font-weight: 900;
-      white-space: nowrap;
-      user-select: none;
-      cursor:pointer;
-      color: var(--fg-86);
-    }
-    .pill.active{
-      background: rgb(var(--accent-rgb) / 0.14);
-      border-color: rgb(var(--accent-rgb) / 0.30);
-      color: var(--tg-text);
-    }
+  .kbd {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg-85);
+  }
+</style>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="title">
+        Uyqur Yordamchi ⚡
+        <span id="roleBadge" class="badge hidden">ROLE</span>
+      </div>
+      <div id="subtitle" class="subtitle">Live tasks va rejalar</div>
+    </div>
 
-    /* Cards */
-    .cards{ display:flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-    .card{
-      border-radius: 22px;
-      border: 1px solid var(--border);
-      background: var(--card);
-      box-shadow: var(--shadow);
-      padding: 18px;
-    }
-    .cardHeader{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-    .cardTitle{
-      font-weight: 950;
-      font-size: 13px;
-      color: var(--fg-88);
-    }
-    .cardMeta{
-      display:flex;
-      align-items:center;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content:flex-end;
-    }
+    <div class="topActions">
+      <button id="refreshBtn" class="iconBtn" aria-label="Refresh">↻</button>
+    </div>
+  </div>
 
-    textarea.textarea{
-      width: 100%;
-      min-height: 44px;
-      resize: none;
-      border-radius: 14px;
-      padding: 12px 12px;
-      border: 1px solid var(--border-strong);
-      background: var(--surface);
-      color: var(--tg-text);
-      outline: none;
-      font-size: 14px;
-      line-height: 1.35;
-    }
-    textarea.textarea:focus{ border-color: rgb(var(--accent-rgb) / 0.35); background: var(--surface-2); }
+  <div class="tabs">
+    <div class="tab active" data-tab="work" id="tab-work">📝 Ishlar</div>
+    <div class="tab" data-tab="planner" id="tab-planner">🗓️ Planner</div>
+    <div class="tab" data-tab="analytics" id="tab-analytics">📊 Rahbar</div>
+  </div>
 
-    .cardFooter{
-      display:flex;
-      gap: 10px;
-      justify-content:flex-end;
-      margin-top: 10px;
-    }
+  <div class="view">
 
-    .btn{
-      border-radius: 14px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--fg-92);
-      cursor:pointer;
-      font-weight: 900;
-      font-size: 12px;
-      display:inline-flex;
-      align-items:center;
-      gap: 8px;
-    }
-    .btn:active{ transform: scale(.99); }
-    .btnPrimary{
-      background: rgb(var(--accent-rgb) / 0.20);
-      border-color: rgb(var(--accent-rgb) / 0.30);
-      color: var(--tg-text);
-    }
-    .btnDanger{
-      background: rgba(255,92,92,.12);
-      border-color: rgba(255,92,92,.25);
-      color: rgba(255,210,210,1);
-    }
-    .btnGhost{
-      background: var(--surface-0);
-      border-color: var(--border);
-      color: var(--fg-86);
-    }
-    .btn[disabled]{
-      opacity: .5;
-      cursor:not-allowed;
-      transform:none !important;
-    }
-
-    .empty{
-      text-align:center;
-      padding: 28px 18px;
-      color: var(--tg-hint);
-      border-radius: 22px;
-      border: 1px dashed var(--border-strong);
-      background: var(--surface-00);
-      line-height: 1.4;
-    }
-
-    .skeleton{
-      height: 92px;
-      border-radius: 22px;
-      border: 1px solid var(--border-soft);
-      background: linear-gradient(90deg, var(--skeleton-a), var(--skeleton-b), var(--skeleton-a));
-      background-size: 200% 200%;
-      animation: shimmer 1.2s ease-in-out infinite;
-    }
-    @keyframes shimmer { 0%{ background-position: 0% 0%; } 100%{ background-position: -200% 0%; } }
-
-    .hintLine{
-      margin-top: 12px;
-      color: var(--fg-55);
-      font-size: 12px;
-      line-height: 1.4;
-      padding: 12px 14px;
-      border: 1px solid var(--border-soft);
-      background: var(--surface-00);
-      border-radius: 22px;
-    }
-    a{ color: var(--tg-link); }
-
-    /* Bottom bar */
-    .bottomBar{
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 20;
-      padding: 12px var(--pad);
-      background: linear-gradient(180deg, var(--bottom-grad-1), var(--bottom-grad-2)), var(--tg-bg);
-      border-top: 1px solid var(--border-soft);
-      display:flex;
-      gap: 10px;
-      justify-content:center;
-    }
-    .cta{
-      flex: 1;
-      max-width: 420px;
-      text-align:center;
-      padding: 12px 14px;
-      border-radius: 16px;
-      font-weight: 950;
-      letter-spacing: .2px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      cursor:pointer;
-      user-select:none;
-      color: var(--fg-92);
-    }
-    .cta.primary{
-      background: rgb(var(--accent-rgb) / 0.22);
-      border-color: rgb(var(--accent-rgb) / 0.32);
-      color: var(--tg-text);
-    }
-    .cta[aria-disabled="true"]{ opacity:.55; cursor:not-allowed; }
-
-    /* Toast */
-    .toast{
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 92px;
-      z-index: 50;
-      min-width: 240px;
-      max-width: min(520px, 92vw);
-      padding: 12px 14px;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: var(--elevated-bg);
-      color: var(--fg-95);
-      box-shadow: var(--shadow-raise);
-      display:none;
-      font-weight: 850;
-      font-size: 13px;
-      text-align: center;
-    }
-    .toast.show{ display:block; animation: toastIn .14s ease-out; }
-    .toast.ok{ border-color: rgba(63,214,140,.25); }
-    .toast.warn{ border-color: rgba(255,204,0,.25); }
-    .toast.bad{ border-color: rgba(255,92,92,.25); }
-    @keyframes toastIn{ from{ transform: translateX(-50%) translateY(8px); opacity:0; } to{ transform: translateX(-50%) translateY(0); opacity:1; } }
-
-    /* Modal */
-    .modalOverlay{
-      position: fixed;
-      inset: 0;
-      z-index: 60;
-      background: var(--overlay);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding: 18px;
-    }
-    .modalOverlay.show{ display:flex; }
-    .modal{
-      width: min(720px, 92vw);
-      border-radius: 22px;
-      border: 1px solid var(--border-strong);
-      background: var(--elevated-bg);
-      box-shadow: var(--shadow-xl);
-      overflow:hidden;
-    }
-    .modalHead{
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border-soft);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-    }
-    .modalTitle{ font-weight: 950; }
-    .modalBody{ padding: 14px 16px; }
-    .modalActions{
-      padding: 14px 16px;
-      border-top: 1px solid var(--border-soft);
-      display:flex;
-      gap: 10px;
-      justify-content:flex-end;
-    }
-
-    .kbd{
-      font-family: var(--mono);
-      font-size: 12px;
-      padding: 3px 8px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--fg-85);
-    }
-  </style>
-    <div class="app">
-    <div class="topbar">
-      <div class="brand">
-        <div class="title">
-          Uyqur Yordamchi ⚡
-          <span id="roleBadge" class="badge hidden">ROLE</span>
+    <!-- WORK VIEW -->
+    <div id="view-work" class="section">
+      <div class="row">
+        <div>
+          <div style="font-weight:950; font-size:15px;">Mening ishlarim</div>
         </div>
-        <div id="subtitle" class="subtitle">Live tasks va rejalar</div>
+        <span id="workCount" class="badge">0</span>
       </div>
 
-        <div class="topActions">
-        <button id="refreshBtn" class="iconBtn" aria-label="Refresh">↻</button>
+      <div style="margin-top:12px;">
+        <input id="workSearch" class="input" type="search" placeholder="🔎 Ish qidirish..." />
+      </div>
+
+      <div class="pillRow" id="workFilters" style="margin-top:12px;">
+        <div class="pill active" data-filter="pending">🟡 Bajarilgan</div>
+        <div class="pill" data-filter="sent">🟢 Yuborilgan</div>
+        <div class="pill" data-filter="all">📚 Barchasi</div>
+      </div>
+
+      <div id="workList" class="cards">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+
+      <div class="hintLine">
+        <b>Autosave:</b> matn o‘zgarsa 0.8s ichida avtomatik saqlanadi. <span class="kbd">Draft</span> ko‘rsangiz — hali
+        saqlanmagan.
       </div>
     </div>
 
-    <div class="tabs">
-      <div class="tab active" data-tab="work" id="tab-work">📝 Ishlar</div>
-      <div class="tab" data-tab="planner" id="tab-planner">🗓️ Planner</div>
-      <div class="tab" data-tab="analytics" id="tab-analytics">📊 Rahbar</div>
-    </div>
+    <!-- PLANNER VIEW -->
+    <div id="view-planner" class="section hidden">
+      <div class="row">
+        <div>
+          <div style="font-weight:950; font-size:15px;">Task Planner</div>
+          <div class="tiny">Kunlik/haftalik rejani saqlang, keyin bir tugma bilan yetkazamiz</div>
+        </div>
+        <span id="planCount" class="badge">0</span>
+      </div>
 
-    <div class="view">
-
-      <!-- WORK VIEW -->
-      <div id="view-work" class="section">
-        <div class="row">
-          <div>
-            <div style="font-weight:950; font-size:15px;">Mening ishlarim</div>
+      <div class="split" style="margin-top:12px;">
+        <div>
+          <div class="mini">Sana</div>
+          <input id="planDate" class="input" type="date" style="margin-top:10px;" />
+        </div>
+        <div>
+          <div class="mini">Reja turi</div>
+          <div class="pillRow" style="margin-top:8px;">
+            <div id="modeDay" class="pill active" data-mode="day">1 kun</div>
+            <div id="modeWeek" class="pill" data-mode="week">1 hafta</div>
           </div>
-          <span id="workCount" class="badge">0</span>
-        </div>
-
-        <div style="margin-top:12px;">
-          <input id="workSearch" class="input" type="search" placeholder="🔎 Ish qidirish..." />
-        </div>
-
-        <div class="pillRow" id="workFilters" style="margin-top:12px;">
-          <div class="pill active" data-filter="pending">🟡 Bajarilgan</div>
-          <div class="pill" data-filter="sent">🟢 Yuborilgan</div>
-          <div class="pill" data-filter="all">📚 Barchasi</div>
-        </div>
-
-        <div id="workList" class="cards">
-          <div class="skeleton"></div>
-          <div class="skeleton"></div>
-          <div class="skeleton"></div>
-        </div>
-
-        <div class="hintLine">
-          <b>Autosave:</b> matn o‘zgarsa 0.8s ichida avtomatik saqlanadi. <span class="kbd">Draft</span> ko‘rsangiz — hali saqlanmagan.
         </div>
       </div>
 
-      <!-- PLANNER VIEW -->
-      <div id="view-planner" class="section hidden">
-        <div class="row">
-          <div>
-            <div style="font-weight:950; font-size:15px;">Task Planner</div>
-            <div class="tiny">Kunlik/haftalik rejani saqlang, keyin bir tugma bilan yetkazamiz</div>
-          </div>
-          <span id="planCount" class="badge">0</span>
+      <div style="margin-top:12px;">
+        <div class="mini">Xodim</div>
+        <div id="employeeChips" class="pillRow" style="margin-top:8px;">
+          <div class="pill">⏳ Yuklanmoqda...</div>
         </div>
+      </div>
 
-        <div class="split" style="margin-top:12px;">
-          <div>
-            <div class="mini">Sana</div>
-            <input id="planDate" class="input" type="date" style="margin-top:10px;"/>
-          </div>
-          <div>
-            <div class="mini">Reja turi</div>
-            <div class="pillRow" style="margin-top:8px;">
-              <div id="modeDay" class="pill active" data-mode="day">1 kun</div>
-              <div id="modeWeek" class="pill" data-mode="week">1 hafta</div>
-            </div>
-          </div>
+      <div style="margin-top:12px;">
+        <div class="mini">Task matni</div>
+        <textarea id="planText" class="textarea" rows="3" placeholder="Type here" style="margin-top:10px;"></textarea>
+        <div class="row" style="margin-top:10px;">
+          <button id="addPlanBtn" class="btn btnPrimary">➕ Qo‘shish</button>
+          <button id="clearPlanBtn" class="btn btnGhost">🧹 Tozalash</button>
         </div>
-
-        <div style="margin-top:12px;">
-          <div class="mini">Xodim</div>
-          <div id="employeeChips" class="pillRow" style="margin-top:8px;">
-            <div class="pill">⏳ Yuklanmoqda...</div>
-          </div>
-        </div>
-
-        <div style="margin-top:12px;">
-          <div class="mini">Task matni</div>
-          <textarea id="planText" class="textarea" rows="3" placeholder="Type here"style="margin-top:10px;"></textarea>
-          <div class="row" style="margin-top:10px;">
-            <button id="addPlanBtn" class="btn btnPrimary">➕ Qo‘shish</button>
-            <button id="clearPlanBtn" class="btn btnGhost">🧹 Tozalash</button>
-          </div>
-        </div>
-          <!-- • Planner tasklari <b>task_plans</b> jadvalga saqlanadi.<br />
+      </div>
+      <!-- • Planner tasklari <b>task_plans</b> jadvalga saqlanadi.<br />
           • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi (queued → sent). -->
-        <div class="hintLine">
-          • Sana va xodim tanlang, keyin vazifa matnini yozing.<br />
-          • Ishlarni <b>raqamlamagan</b> holda birma bir kiriting.<br />
-          • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi.
-        </div>
-
-        <div id="planList" class="cards">
-          <div class="empty">Hozircha reja yo‘q ✨</div>
-        </div>
+      <div class="hintLine">
+        • Sana va xodim tanlang, keyin vazifa matnini yozing.<br />
+        • Ishlarni <b>raqamlamagan</b> holda birma bir kiriting.<br />
+        • <b>Rejani yuborish</b> bosilganda bot xodimlarga yetkazadi.
       </div>
 
-      <!-- ANALYTICS VIEW -->
-      <div id="view-analytics" class="section hidden">
-        <div class="row">
-          <div>
-            <div style="font-weight:950; font-size:15px;">Rahbar panel</div>
-            <div class="tiny">Reja vs natija: har bir xodim bo‘yicha ko‘rsatkichlar</div>
-          </div>
-          <span id="teamCount" class="badge">0</span>
-        </div>
+      <div id="planList" class="cards">
+        <div class="empty">Hozircha reja yo‘q ✨</div>
+      </div>
+    </div>
 
-        <div class="pillRow" id="rangeFilters" style="margin-top:12px;">
-          <div class="pill active" data-range="today">📍 Bugun</div>
-          <div class="pill" data-range="week">🗓️ Hafta</div>
-          <div class="pill" data-range="month">📅 Oy</div>
+    <!-- ANALYTICS VIEW -->
+    <div id="view-analytics" class="section hidden">
+      <div class="row">
+        <div>
+          <div style="font-weight:950; font-size:15px;">Rahbar panel</div>
+          <div class="tiny">Reja vs natija: har bir xodim bo‘yicha ko‘rsatkichlar</div>
         </div>
+        <span id="teamCount" class="badge">0</span>
+      </div>
 
-        <div id="analyticsList" class="cards">
-          <div class="skeleton"></div>
-          <div class="skeleton"></div>
-        </div>
-        <!-- <div class="hintLine">
+      <div class="pillRow" id="rangeFilters" style="margin-top:12px;">
+        <div class="pill active" data-range="today">📍 Bugun</div>
+        <div class="pill" data-range="week">🗓️ Hafta</div>
+        <div class="pill" data-range="month">📅 Oy</div>
+      </div>
+
+      <div id="analyticsList" class="cards">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+      <!-- <div class="hintLine">
           Reja: <b>task_plans</b> jadvalidan. Natija: <b>reports</b> jadvalidan (sent).
         </div> -->
-      </div>
+    </div>
 
+  </div>
+</div>
+
+<!-- bottom action bar -->
+<div class="bottomBar">
+  <div id="primaryCta" class="cta primary">🚀 Yuborish</div>
+  <div id="secondaryCta" class="cta">⚙️ Yangilash</div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Modal -->
+<div id="modalOverlay" class="modalOverlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modalHead">
+      <div id="modalTitle" class="modalTitle">Tahrirlash</div>
+      <button id="modalClose" class="iconBtn" aria-label="Close">✕</button>
+    </div>
+    <div class="modalBody">
+      <div id="modalHint" class="tiny" style="margin-bottom:10px; opacity:.85;">Yangi matnni kiriting</div>
+      <textarea id="modalInput" class="textarea" rows="4"></textarea>
+    </div>
+    <div class="modalActions">
+      <button id="modalCancel" class="btn btnGhost">Bekor</button>
+      <button id="modalSave" class="btn btnPrimary">Saqlash</button>
     </div>
   </div>
+</div>
 
-  <!-- bottom action bar -->
-  <div class="bottomBar">
-    <div id="primaryCta" class="cta primary">🚀 Yuborish</div>
-    <div id="secondaryCta" class="cta">⚙️ Yangilash</div>
-  </div>
+<script>
+  // ================== CONFIG (EDIT THESE IF NEEDED) ==================
+  const tg = window.Telegram.WebApp;
+  tg.expand(); tg.ready();
 
-  <!-- Toast -->
-  <div id="toast" class="toast"></div>
+  // ================== THEME (SYSTEM + TELEGRAM) ==================
+  const rootEl = document.documentElement;
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
 
-  <!-- Modal -->
-  <div id="modalOverlay" class="modalOverlay" role="dialog" aria-modal="true">
-    <div class="modal">
-      <div class="modalHead">
-        <div id="modalTitle" class="modalTitle">Tahrirlash</div>
-        <button id="modalClose" class="iconBtn" aria-label="Close">✕</button>
-      </div>
-      <div class="modalBody">
-        <div id="modalHint" class="tiny" style="margin-bottom:10px; opacity:.85;">Yangi matnni kiriting</div>
-        <textarea id="modalInput" class="textarea" rows="4"></textarea>
-      </div>
-      <div class="modalActions">
-        <button id="modalCancel" class="btn btnGhost">Bekor</button>
-        <button id="modalSave" class="btn btnPrimary">Saqlash</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ================== CONFIG (EDIT THESE IF NEEDED) ==================
-    const tg = window.Telegram.WebApp;
-    tg.expand(); tg.ready();
-
-    // ================== THEME (SYSTEM + TELEGRAM) ==================
-    const rootEl = document.documentElement;
-    const themeMeta = document.querySelector('meta[name="theme-color"]');
-
-    function hexToRgbTriplet(hex) {
-      try {
-        let h = String(hex || '').trim();
-        if (!h) return null;
-        if (h.startsWith('#')) h = h.slice(1);
-        if (h.length === 3) h = h.split('').map(ch => ch + ch).join('');
-        if (h.length !== 6) return null;
-        const r = parseInt(h.slice(0,2), 16);
-        const g = parseInt(h.slice(2,4), 16);
-        const b = parseInt(h.slice(4,6), 16);
-        if ([r,g,b].some(n => Number.isNaN(n))) return null;
-        return `${r} ${g} ${b}`;
-      } catch { return null; }
-    }
-
-    function getAutoScheme() {
-      const tgScheme = tg?.colorScheme;
-      if (tgScheme === 'dark' || tgScheme === 'light') return tgScheme;
-      try {
-        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-      } catch {
-        return 'dark';
-      }
-    }
-
-    function syncAccentFromTelegram() {
-      try {
-        const tp = tg?.themeParams || {};
-        const btn = tp.button_color || tp.link_color || null;
-        const rgb = hexToRgbTriplet(btn);
-        if (btn) rootEl.style.setProperty('--accent', btn);
-        if (rgb) rootEl.style.setProperty('--accent-rgb', rgb);
-      } catch {}
-    }
-
-    function applyAutoTheme() {
-      const scheme = getAutoScheme();
-      rootEl.dataset.theme = scheme;
-      // Keep browser/OS UI in sync (address bar color, etc.)
-      if (themeMeta) themeMeta.setAttribute('content', scheme === 'light' ? '#f6f7fb' : '#0b0f14');
-      syncAccentFromTelegram();
-      // Telegram native chrome (best-effort)
-      try { tg?.setBackgroundColor?.(scheme === 'light' ? '#f6f7fb' : '#0b0f14'); } catch {}
-    }
-
-    // Initial apply
-    applyAutoTheme();
-
-    // React to theme changes
-    try { tg?.onEvent?.('themeChanged', applyAutoTheme); } catch {}
+  function hexToRgbTriplet(hex) {
     try {
-      const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
-      mq?.addEventListener?.('change', applyAutoTheme);
-    } catch {}
+      let h = String(hex || '').trim();
+      if (!h) return null;
+      if (h.startsWith('#')) h = h.slice(1);
+      if (h.length === 3) h = h.split('').map(ch => ch + ch).join('');
+      if (h.length !== 6) return null;
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      if ([r, g, b].some(n => Number.isNaN(n))) return null;
+      return `${r} ${g} ${b}`;
+    } catch { return null; }
+  }
 
-
-    const haptic = tg.HapticFeedback;
-
-    // Supabase (hozircha client mode). Prod-hardening uchun keyin /api gateway qo‘shib beramiz.
-    const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    const ENABLE_REALTIME = true; // agar Supabase Realtime yoqilgan bo‘lsa — live update bo‘ladi
-
-    // Telegram user
-    const userId = tg?.initDataUnsafe?.user?.id || null;
-
-    // ================== UI REFS ==================
-    const subtitleEl = document.getElementById('subtitle');
-    const roleBadge = document.getElementById('roleBadge');
-
-    const tabs = Array.from(document.querySelectorAll('.tab'));
-    const tabAnalytics = document.getElementById('tab-analytics');
-    const views = {
-      work: document.getElementById('view-work'),
-      planner: document.getElementById('view-planner'),
-      analytics: document.getElementById('view-analytics')
-    };
-
-    const refreshBtn = document.getElementById('refreshBtn');
-    const primaryCta = document.getElementById('primaryCta');
-    const secondaryCta = document.getElementById('secondaryCta');
-
-    // Toast
-    const toastEl = document.getElementById('toast');
-    let toastTimer = null;
-
-    // Modal
-    const modalOverlay = document.getElementById('modalOverlay');
-    const modalTitleEl = document.getElementById('modalTitle');
-    const modalHintEl = document.getElementById('modalHint');
-    const modalInputEl = document.getElementById('modalInput');
-    const modalClose = document.getElementById('modalClose');
-    const modalCancel = document.getElementById('modalCancel');
-    const modalSave = document.getElementById('modalSave');
-
-    // Work
-    const workCount = document.getElementById('workCount');
-    const workList = document.getElementById('workList');
-    const workFilters = document.getElementById('workFilters');
-    const workSearch = document.getElementById('workSearch');
-
-    // Planner
-    const planCount = document.getElementById('planCount');
-    const planDate = document.getElementById('planDate');
-    const planText = document.getElementById('planText');
-    const addPlanBtn = document.getElementById('addPlanBtn');
-    const clearPlanBtn = document.getElementById('clearPlanBtn');
-    const employeeChips = document.getElementById('employeeChips');
-    const planList = document.getElementById('planList');
-    const modeDay = document.getElementById('modeDay');
-    const modeWeek = document.getElementById('modeWeek');
-
-    // Analytics
-    const teamCount = document.getElementById('teamCount');
-    const analyticsList = document.getElementById('analyticsList');
-    const rangeFilters = document.getElementById('rangeFilters');
-
-    // ================== STATE ==================
-    const storageKey = 'uyqur_miniapp_state_v2';
-    const state = {
-      tab: 'work',
-      workFilter: 'pending',
-      workSearch: '',
-      planMode: 'day',
-      selectedEmployeeId: null,
-      employees: [],
-      role: 'user',
-      range: 'today',
-      cache: {
-        work: [],
-        plans: []
-      },
-      workDraft: {
-        dirty: new Set(),
-        timers: new Map(),
-        lastSavedAt: new Map()
-      }
-    };
-
-    // Restore small prefs
+  function getAutoScheme() {
+    const tgScheme = tg?.colorScheme;
+    if (tgScheme === 'dark' || tgScheme === 'light') return tgScheme;
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      if (saved && typeof saved === 'object') {
-        if (saved.workFilter) state.workFilter = saved.workFilter;
-        if (saved.workSearch) state.workSearch = saved.workSearch;
-        if (saved.planMode) state.planMode = saved.planMode;
-        if (saved.selectedEmployeeId) state.selectedEmployeeId = saved.selectedEmployeeId;
-        if (saved.range) state.range = saved.range;
-        if (saved.tab) state.tab = saved.tab;
-      }
-    } catch {}
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    } catch {
+      return 'dark';
+    }
+  }
 
-    function persistState() {
-      const payload = {
-        workFilter: state.workFilter,
-        workSearch: state.workSearch,
-        planMode: state.planMode,
-        selectedEmployeeId: state.selectedEmployeeId,
-        range: state.range,
-        tab: state.tab
+  function syncAccentFromTelegram() {
+    try {
+      const tp = tg?.themeParams || {};
+      const btn = tp.button_color || tp.link_color || null;
+      const rgb = hexToRgbTriplet(btn);
+      if (btn) rootEl.style.setProperty('--accent', btn);
+      if (rgb) rootEl.style.setProperty('--accent-rgb', rgb);
+    } catch { }
+  }
+
+  function applyAutoTheme() {
+    const scheme = getAutoScheme();
+    rootEl.dataset.theme = scheme;
+    // Keep browser/OS UI in sync (address bar color, etc.)
+    if (themeMeta) themeMeta.setAttribute('content', scheme === 'light' ? '#f6f7fb' : '#0b0f14');
+    syncAccentFromTelegram();
+    // Telegram native chrome (best-effort)
+    try { tg?.setBackgroundColor?.(scheme === 'light' ? '#f6f7fb' : '#0b0f14'); } catch { }
+  }
+
+  // Initial apply
+  applyAutoTheme();
+
+  // React to theme changes
+  try { tg?.onEvent?.('themeChanged', applyAutoTheme); } catch { }
+  try {
+    const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    mq?.addEventListener?.('change', applyAutoTheme);
+  } catch { }
+
+
+  const haptic = tg.HapticFeedback;
+
+  // Supabase (hozircha client mode). Prod-hardening uchun keyin /api gateway qo‘shib beramiz.
+  const SUPABASE_URL = 'https://trybbxovootehqvaiydn.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyeWJieG92b290ZWhxdmFpeWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODk1MTYsImV4cCI6MjA4MzI2NTUxNn0.szjMQBYb8_ZNMq8rZyowVPTgD2GYLNnWEvs7XlCHY1M';
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const ENABLE_REALTIME = true; // agar Supabase Realtime yoqilgan bo‘lsa — live update bo‘ladi
+
+  // Telegram user
+  const userId = tg?.initDataUnsafe?.user?.id || null;
+
+  // ================== UI REFS ==================
+  const subtitleEl = document.getElementById('subtitle');
+  const roleBadge = document.getElementById('roleBadge');
+
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const tabAnalytics = document.getElementById('tab-analytics');
+  const views = {
+    work: document.getElementById('view-work'),
+    planner: document.getElementById('view-planner'),
+    analytics: document.getElementById('view-analytics')
+  };
+
+  const refreshBtn = document.getElementById('refreshBtn');
+  const primaryCta = document.getElementById('primaryCta');
+  const secondaryCta = document.getElementById('secondaryCta');
+
+  // Toast
+  const toastEl = document.getElementById('toast');
+  let toastTimer = null;
+
+  // Modal
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalTitleEl = document.getElementById('modalTitle');
+  const modalHintEl = document.getElementById('modalHint');
+  const modalInputEl = document.getElementById('modalInput');
+  const modalClose = document.getElementById('modalClose');
+  const modalCancel = document.getElementById('modalCancel');
+  const modalSave = document.getElementById('modalSave');
+
+  // Work
+  const workCount = document.getElementById('workCount');
+  const workList = document.getElementById('workList');
+  const workFilters = document.getElementById('workFilters');
+  const workSearch = document.getElementById('workSearch');
+
+  // Planner
+  const planCount = document.getElementById('planCount');
+  const planDate = document.getElementById('planDate');
+  const planText = document.getElementById('planText');
+  const addPlanBtn = document.getElementById('addPlanBtn');
+  const clearPlanBtn = document.getElementById('clearPlanBtn');
+  const employeeChips = document.getElementById('employeeChips');
+  const planList = document.getElementById('planList');
+  const modeDay = document.getElementById('modeDay');
+  const modeWeek = document.getElementById('modeWeek');
+
+  // Analytics
+  const teamCount = document.getElementById('teamCount');
+  const analyticsList = document.getElementById('analyticsList');
+  const rangeFilters = document.getElementById('rangeFilters');
+
+  // ================== STATE ==================
+  const storageKey = 'uyqur_miniapp_state_v2';
+  const state = {
+    tab: 'work',
+    workFilter: 'pending',
+    workSearch: '',
+    planMode: 'day',
+    selectedEmployeeId: null,
+    employees: [],
+    role: 'user',
+    range: 'today',
+    cache: {
+      work: [],
+      plans: []
+    },
+    workDraft: {
+      dirty: new Set(),
+      timers: new Map(),
+      lastSavedAt: new Map()
+    }
+  };
+
+  // Restore small prefs
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    if (saved && typeof saved === 'object') {
+      if (saved.workFilter) state.workFilter = saved.workFilter;
+      if (saved.workSearch) state.workSearch = saved.workSearch;
+      if (saved.planMode) state.planMode = saved.planMode;
+      if (saved.selectedEmployeeId) state.selectedEmployeeId = saved.selectedEmployeeId;
+      if (saved.range) state.range = saved.range;
+      if (saved.tab) state.tab = saved.tab;
+    }
+  } catch { }
+
+  function persistState() {
+    const payload = {
+      workFilter: state.workFilter,
+      workSearch: state.workSearch,
+      planMode: state.planMode,
+      selectedEmployeeId: state.selectedEmployeeId,
+      range: state.range,
+      tab: state.tab
+    };
+    try { localStorage.setItem(storageKey, JSON.stringify(payload)); } catch { }
+  }
+
+  // ================== HELPERS ==================
+  function todayISO() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function isoDateFromDate(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function formatNiceDate(iso) {
+    try {
+      const d = new Date(iso + 'T00:00:00');
+      return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch { return iso; }
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  }
+
+  function setSubtitle(text) { subtitleEl.textContent = text; }
+
+  function showToast(message, type = 'ok', ms = 1800) {
+    if (!toastEl) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastEl.className = 'toast show ' + (type || '');
+    toastEl.textContent = message;
+    toastTimer = setTimeout(() => {
+      toastEl.className = 'toast';
+      toastEl.textContent = '';
+    }, ms);
+  }
+
+  function autoGrowTextarea(el) {
+    if (!el) return;
+    el.style.height = '';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  }
+
+  function normalize(str) { return String(str || '').toLowerCase().trim(); }
+
+  function getWeekRange(iso) {
+    const base = new Date((iso || todayISO()) + 'T00:00:00');
+    const day = (base.getDay() + 6) % 7; // Monday=0
+    const start = new Date(base);
+    start.setDate(base.getDate() - day);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { startISO: isoDateFromDate(start), endISO: isoDateFromDate(end) };
+  }
+
+  // ================== MODAL ==================
+  function openModal({ title = 'Tahrirlash', hint = '', value = '', placeholder = '', saveText = 'Saqlash' }) {
+    return new Promise((resolve) => {
+      modalTitleEl.textContent = title;
+      modalHintEl.textContent = hint || '';
+      modalInputEl.value = value || '';
+      modalInputEl.placeholder = placeholder || '';
+      modalSave.textContent = saveText;
+
+      modalOverlay.classList.add('show');
+      setTimeout(() => {
+        modalInputEl.focus();
+        autoGrowTextarea(modalInputEl);
+      }, 10);
+
+      let done = false;
+      const close = (result) => {
+        if (done) return;
+        done = true;
+        modalOverlay.classList.remove('show');
+        cleanup();
+        resolve(result);
       };
-      try { localStorage.setItem(storageKey, JSON.stringify(payload)); } catch {}
+
+      const onKey = (e) => {
+        if (e.key === 'Escape') close(null);
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') close(modalInputEl.value);
+      };
+
+      const cleanup = () => {
+        modalClose.onclick = null;
+        modalCancel.onclick = null;
+        modalSave.onclick = null;
+        modalOverlay.onclick = null;
+        document.removeEventListener('keydown', onKey);
+        modalInputEl.removeEventListener('input', onGrow);
+      };
+
+      const onGrow = () => autoGrowTextarea(modalInputEl);
+
+      modalClose.onclick = () => close(null);
+      modalCancel.onclick = () => close(null);
+      modalSave.onclick = () => close(modalInputEl.value);
+      modalOverlay.onclick = (e) => { if (e.target === modalOverlay) close(null); };
+
+      document.addEventListener('keydown', onKey);
+      modalInputEl.addEventListener('input', onGrow);
+    });
+  }
+
+  // ================== ROLE / TABS ==================
+  function showRole(role) {
+    roleBadge.classList.remove('hidden');
+    roleBadge.textContent = String(role).toUpperCase();
+    if (role === 'boss') roleBadge.classList.add('warn');
+    else roleBadge.classList.add('ok');
+  }
+
+  function applyRoleUI() {
+    const isBoss = state.role === 'boss';
+    tabAnalytics.classList.toggle('hidden', !isBoss);
+    if (!isBoss && state.tab === 'analytics') setActiveTab('work');
+  }
+
+  function setActiveTab(tabKey) {
+    state.tab = tabKey;
+    persistState();
+
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabKey));
+    Object.keys(views).forEach(k => {
+      if (k === tabKey) views[k].classList.remove('hidden');
+      else views[k].classList.add('hidden');
+    });
+
+    if (tabKey === 'work') {
+      setSubtitle('Pending ishlarni tartibga keltirish');
+      primaryCta.textContent = '🚀 Yuborish';
+      secondaryCta.textContent = '⚙️ Yangilash';
+      primaryCta.setAttribute('aria-disabled', 'false');
+    }
+    if (tabKey === 'planner') {
+      setSubtitle(state.planMode === 'week' ? 'Haftalik reja (grouped)' : 'Kunlik reja (tezkor)');
+      primaryCta.textContent = '📤 Rejani yuborish';
+      secondaryCta.textContent = '⚙️ Yangilash';
+      primaryCta.setAttribute('aria-disabled', state.selectedEmployeeId ? 'false' : 'true');
+    }
+    if (tabKey === 'analytics') {
+      setSubtitle('Reja vs natija (team)');
+      primaryCta.textContent = '📊 Yangilash';
+      secondaryCta.textContent = '⚙️ Yangilash';
+      primaryCta.setAttribute('aria-disabled', 'false');
+    }
+  }
+
+  // ================== DATA LOADERS ==================
+  async function loadRole() {
+    try {
+      const { data } = await supabaseClient
+        .from('app_roles')
+        .select('role')
+        .eq('telegram_id', userId)
+        .maybeSingle();
+      const role = data && data.role ? String(data.role) : 'user';
+      state.role = role;
+      if (role !== 'user') showRole(role);
+    } catch {
+      state.role = 'user';
+    }
+    applyRoleUI();
+  }
+
+  async function loadEmployees() {
+    const { data, error } = await supabaseClient
+      .from('users_mapping')
+      .select('telegram_id, full_name')
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      employeeChips.innerHTML = '<div class="empty">Xodimlar ro\'yxati yuklanmadi</div>';
+      return;
     }
 
-    // ================== HELPERS ==================
-    function todayISO() {
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
+    state.employees = (data || []).map(x => ({
+      id: Number(x.telegram_id),
+      name: x.full_name || String(x.telegram_id)
+    }));
+
+    if (!state.selectedEmployeeId && state.employees.length) {
+      state.selectedEmployeeId = state.employees[0].id;
     }
 
-    function isoDateFromDate(d) {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
+    renderEmployees();
+  }
+
+  function renderEmployees() {
+    if (!state.employees.length) {
+      employeeChips.innerHTML = '<div class="empty">Xodim yo\'q. Avval /bind orqali bog\'lang</div>';
+      return;
     }
 
-    function formatNiceDate(iso) {
-      try {
-        const d = new Date(iso + 'T00:00:00');
-        return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' });
-      } catch { return iso; }
+    employeeChips.innerHTML = '';
+    state.employees.forEach(emp => {
+      const chip = document.createElement('div');
+      chip.className = 'pill' + (emp.id === state.selectedEmployeeId ? ' active' : '');
+      chip.textContent = emp.name;
+      chip.onclick = () => {
+        haptic?.impactOccurred?.('light');
+        state.selectedEmployeeId = emp.id;
+        persistState();
+        renderEmployees();
+        loadPlans();
+        setActiveTab('planner');
+      };
+      employeeChips.appendChild(chip);
+    });
+
+    if (state.tab === 'planner') {
+      primaryCta.setAttribute('aria-disabled', state.selectedEmployeeId ? 'false' : 'true');
+    }
+  }
+
+  async function loadWork() {
+    if (!userId) {
+      workList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
+      return;
     }
 
-    function escapeHtml(str) {
-      return String(str ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
+    workList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+
+    let q = supabaseClient
+      .from('reports')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (state.workFilter === 'pending') q = q.eq('status', 'pending');
+    if (state.workFilter === 'sent') q = q.eq('status', 'sent');
+
+    const { data, error } = await q;
+
+    if (error) {
+      showToast('Xatolik: ' + error.message, 'bad', 2400);
+      return;
     }
 
-    function setSubtitle(text) { subtitleEl.textContent = text; }
+    state.cache.work = data || [];
+    renderWork();
+  }
 
-    function showToast(message, type='ok', ms=1800) {
-      if (!toastEl) return;
-      if (toastTimer) clearTimeout(toastTimer);
-      toastEl.className = 'toast show ' + (type || '');
-      toastEl.textContent = message;
-      toastTimer = setTimeout(() => {
-        toastEl.className = 'toast';
-        toastEl.textContent = '';
-      }, ms);
-    }
+  function renderWork() {
+    const q = normalize(state.workSearch);
+    const items = (state.cache.work || []).filter(item => {
+      if (!q) return true;
+      return normalize(item.content).includes(q);
+    });
 
-    function autoGrowTextarea(el) {
-      if (!el) return;
-      el.style.height = '';
-      el.style.height = (el.scrollHeight + 2) + 'px';
-    }
+    workCount.textContent = String(items.length);
 
-    function normalize(str){ return String(str || '').toLowerCase().trim(); }
-
-    function getWeekRange(iso) {
-      const base = new Date((iso || todayISO()) + 'T00:00:00');
-      const day = (base.getDay() + 6) % 7; // Monday=0
-      const start = new Date(base);
-      start.setDate(base.getDate() - day);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      return { startISO: isoDateFromDate(start), endISO: isoDateFromDate(end) };
-    }
-
-    // ================== MODAL ==================
-    function openModal({ title='Tahrirlash', hint='', value='', placeholder='', saveText='Saqlash' }) {
-      return new Promise((resolve) => {
-        modalTitleEl.textContent = title;
-        modalHintEl.textContent = hint || '';
-        modalInputEl.value = value || '';
-        modalInputEl.placeholder = placeholder || '';
-        modalSave.textContent = saveText;
-
-        modalOverlay.classList.add('show');
-        setTimeout(() => {
-          modalInputEl.focus();
-          autoGrowTextarea(modalInputEl);
-        }, 10);
-
-        let done = false;
-        const close = (result) => {
-          if (done) return;
-          done = true;
-          modalOverlay.classList.remove('show');
-          cleanup();
-          resolve(result);
-        };
-
-        const onKey = (e) => {
-          if (e.key === 'Escape') close(null);
-          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') close(modalInputEl.value);
-        };
-
-        const cleanup = () => {
-          modalClose.onclick = null;
-          modalCancel.onclick = null;
-          modalSave.onclick = null;
-          modalOverlay.onclick = null;
-          document.removeEventListener('keydown', onKey);
-          modalInputEl.removeEventListener('input', onGrow);
-        };
-
-        const onGrow = () => autoGrowTextarea(modalInputEl);
-
-        modalClose.onclick = () => close(null);
-        modalCancel.onclick = () => close(null);
-        modalSave.onclick = () => close(modalInputEl.value);
-        modalOverlay.onclick = (e) => { if (e.target === modalOverlay) close(null); };
-
-        document.addEventListener('keydown', onKey);
-        modalInputEl.addEventListener('input', onGrow);
-      });
-    }
-
-    // ================== ROLE / TABS ==================
-    function showRole(role) {
-      roleBadge.classList.remove('hidden');
-      roleBadge.textContent = String(role).toUpperCase();
-      if (role === 'boss') roleBadge.classList.add('warn');
-      else roleBadge.classList.add('ok');
-    }
-
-    function applyRoleUI() {
-      const isBoss = state.role === 'boss';
-      tabAnalytics.classList.toggle('hidden', !isBoss);
-      if (!isBoss && state.tab === 'analytics') setActiveTab('work');
-    }
-
-    function setActiveTab(tabKey) {
-      state.tab = tabKey;
-      persistState();
-
-      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabKey));
-      Object.keys(views).forEach(k => {
-        if (k === tabKey) views[k].classList.remove('hidden');
-        else views[k].classList.add('hidden');
-      });
-
-      if (tabKey === 'work') {
-        setSubtitle('Pending ishlarni tartibga keltirish');
-        primaryCta.textContent = '🚀 Yuborish';
-        secondaryCta.textContent = '⚙️ Yangilash';
-        primaryCta.setAttribute('aria-disabled', 'false');
-      }
-      if (tabKey === 'planner') {
-        setSubtitle(state.planMode === 'week' ? 'Haftalik reja (grouped)' : 'Kunlik reja (tezkor)');
-        primaryCta.textContent = '📤 Rejani yuborish';
-        secondaryCta.textContent = '⚙️ Yangilash';
-        primaryCta.setAttribute('aria-disabled', state.selectedEmployeeId ? 'false' : 'true');
-      }
-      if (tabKey === 'analytics') {
-        setSubtitle('Reja vs natija (team)');
-        primaryCta.textContent = '📊 Yangilash';
-        secondaryCta.textContent = '⚙️ Yangilash';
-        primaryCta.setAttribute('aria-disabled', 'false');
-      }
-    }
-
-    // ================== DATA LOADERS ==================
-    async function loadRole() {
-      try {
-        const { data } = await supabaseClient
-          .from('app_roles')
-          .select('role')
-          .eq('telegram_id', userId)
-          .maybeSingle();
-        const role = data && data.role ? String(data.role) : 'user';
-        state.role = role;
-        if (role !== 'user') showRole(role);
-      } catch {
-        state.role = 'user';
-      }
-      applyRoleUI();
-    }
-
-    async function loadEmployees() {
-      const { data, error } = await supabaseClient
-        .from('users_mapping')
-        .select('telegram_id, full_name')
-        .order('full_name', { ascending: true });
-
-      if (error) {
-        employeeChips.innerHTML = '<div class="empty">Xodimlar ro\'yxati yuklanmadi</div>';
-        return;
-      }
-
-      state.employees = (data || []).map(x => ({
-        id: Number(x.telegram_id),
-        name: x.full_name || String(x.telegram_id)
-      }));
-
-      if (!state.selectedEmployeeId && state.employees.length) {
-        state.selectedEmployeeId = state.employees[0].id;
-      }
-
-      renderEmployees();
-    }
-
-    function renderEmployees() {
-      if (!state.employees.length) {
-        employeeChips.innerHTML = '<div class="empty">Xodim yo\'q. Avval /bind orqali bog\'lang</div>';
-        return;
-      }
-
-      employeeChips.innerHTML = '';
-      state.employees.forEach(emp => {
-        const chip = document.createElement('div');
-        chip.className = 'pill' + (emp.id === state.selectedEmployeeId ? ' active' : '');
-        chip.textContent = emp.name;
-        chip.onclick = () => {
-          haptic?.impactOccurred?.('light');
-          state.selectedEmployeeId = emp.id;
-          persistState();
-          renderEmployees();
-          loadPlans();
-          setActiveTab('planner');
-        };
-        employeeChips.appendChild(chip);
-      });
-
-      if (state.tab === 'planner') {
-        primaryCta.setAttribute('aria-disabled', state.selectedEmployeeId ? 'false' : 'true');
-      }
-    }
-
-    async function loadWork() {
-      if (!userId) {
-        workList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
-        return;
-      }
-
-      workList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
-
-      let q = supabaseClient
-        .from('reports')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (state.workFilter === 'pending') q = q.eq('status', 'pending');
-      if (state.workFilter === 'sent') q = q.eq('status', 'sent');
-
-      const { data, error } = await q;
-
-      if (error) {
-        showToast('Xatolik: ' + error.message, 'bad', 2400);
-        return;
-      }
-
-      state.cache.work = data || [];
-      renderWork();
-    }
-
-    function renderWork() {
-      const q = normalize(state.workSearch);
-      const items = (state.cache.work || []).filter(item => {
-        if (!q) return true;
-        return normalize(item.content).includes(q);
-      });
-
-      workCount.textContent = String(items.length);
-
-      if (!items.length) {
-        workList.innerHTML = `
+    if (!items.length) {
+      workList.innerHTML = `
           <div class="empty">
             <div style="font-size:42px;">🪐</div>
             Hozircha ma'lumot yo‘q.<br />Botga yozib ko‘ring.
           </div>
         `;
-        return;
-      }
+      return;
+    }
 
-      workList.innerHTML = '';
+    workList.innerHTML = '';
 
-      items.forEach(item => {
-        const id = item.id;
-        const status = item.status || 'pending';
-        const statusBadge = status === 'sent'
-          ? '<span class="badge ok mini">🟢 SENT</span>'
-          : '<span class="badge warn mini">🟡 PENDING</span>';
+    items.forEach(item => {
+      const id = item.id;
+      const status = item.status || 'pending';
+      const statusBadge = status === 'sent'
+        ? '<span class="badge ok mini">🟢 SENT</span>'
+        : '<span class="badge warn mini">🟡 PENDING</span>';
 
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.dataset.id = String(id);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.id = String(id);
 
-        card.innerHTML = `
+      card.innerHTML = `
           <div class="cardHeader">
             <div class="cardTitle">🧩 Ish #${id}</div>
             <div class="cardMeta">
@@ -1179,215 +1332,215 @@
           </div>
         `;
 
-        workList.appendChild(card);
+      workList.appendChild(card);
 
-        const ta = document.getElementById(`work-${id}`);
+      const ta = document.getElementById(`work-${id}`);
+      autoGrowTextarea(ta);
+      ta.addEventListener('input', () => {
         autoGrowTextarea(ta);
-        ta.addEventListener('input', () => {
-          autoGrowTextarea(ta);
-          markWorkDirty(id);
-          scheduleWorkAutosave(id);
-        });
+        markWorkDirty(id);
+        scheduleWorkAutosave(id);
       });
+    });
 
-      workList.querySelectorAll('[data-save]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-save');
-          await updateReport(id, { silent: false, force: true });
-        });
+    workList.querySelectorAll('[data-save]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-save');
+        await updateReport(id, { silent: false, force: true });
       });
+    });
 
-      workList.querySelectorAll('[data-del]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-del');
-          await deleteReport(id);
-        });
+    workList.querySelectorAll('[data-del]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-del');
+        await deleteReport(id);
       });
+    });
+  }
+
+  function setWorkSaveBadge(id, mode) {
+    const card = workList.querySelector(`.card[data-id="${id}"]`);
+    const badge = card?.querySelector('[data-save-state]');
+    if (!badge) return;
+
+    if (mode === 'dirty') {
+      badge.className = 'badge mini warn';
+      badge.textContent = '● Draft';
+    } else if (mode === 'saving') {
+      badge.className = 'badge mini';
+      badge.textContent = '… Saving';
+    } else if (mode === 'saved') {
+      badge.className = 'badge mini ok';
+      badge.textContent = '✓ Saved';
+    } else if (mode === 'error') {
+      badge.className = 'badge mini bad';
+      badge.textContent = '⚠ Error';
+    }
+  }
+
+  function markWorkDirty(id) {
+    state.workDraft.dirty.add(String(id));
+    setWorkSaveBadge(id, 'dirty');
+  }
+
+  function scheduleWorkAutosave(id) {
+    const key = String(id);
+    if (state.workDraft.timers.has(key)) clearTimeout(state.workDraft.timers.get(key));
+
+    const timer = setTimeout(async () => {
+      await updateReport(id, { silent: true, force: false });
+    }, 800);
+
+    state.workDraft.timers.set(key, timer);
+  }
+
+  async function updateReport(id, { silent = true, force = false } = {}) {
+    const el = document.getElementById(`work-${id}`);
+    if (!el) return;
+
+    const content = el.value;
+    const key = String(id);
+
+    if (!force && !state.workDraft.dirty.has(key)) return;
+
+    setWorkSaveBadge(id, 'saving');
+    haptic?.impactOccurred?.('light');
+
+    const { error } = await supabaseClient
+      .from('reports')
+      .update({ content })
+      .eq('id', id);
+
+    if (error) {
+      setWorkSaveBadge(id, 'error');
+      if (!silent) showToast('Saqlanmadi: ' + error.message, 'bad', 2600);
+      return;
     }
 
-    function setWorkSaveBadge(id, mode) {
-      const card = workList.querySelector(`.card[data-id="${id}"]`);
-      const badge = card?.querySelector('[data-save-state]');
-      if (!badge) return;
+    state.workDraft.dirty.delete(key);
+    state.workDraft.lastSavedAt.set(key, Date.now());
 
-      if (mode === 'dirty') {
-        badge.className = 'badge mini warn';
-        badge.textContent = '● Draft';
-      } else if (mode === 'saving') {
-        badge.className = 'badge mini';
-        badge.textContent = '… Saving';
-      } else if (mode === 'saved') {
-        badge.className = 'badge mini ok';
-        badge.textContent = '✓ Saved';
-      } else if (mode === 'error') {
-        badge.className = 'badge mini bad';
-        badge.textContent = '⚠ Error';
-      }
-    }
+    setWorkSaveBadge(id, 'saved');
+    if (!silent) showToast('✅ Saqlandi', 'ok', 1200);
+    haptic?.notificationOccurred?.('success');
+  }
 
-    function markWorkDirty(id) {
-      state.workDraft.dirty.add(String(id));
-      setWorkSaveBadge(id, 'dirty');
-    }
+  async function deleteReport(id) {
+    haptic?.impactOccurred?.('medium');
 
-    function scheduleWorkAutosave(id) {
-      const key = String(id);
-      if (state.workDraft.timers.has(key)) clearTimeout(state.workDraft.timers.get(key));
-
-      const timer = setTimeout(async () => {
-        await updateReport(id, { silent: true, force: false });
-      }, 800);
-
-      state.workDraft.timers.set(key, timer);
-    }
-
-    async function updateReport(id, { silent = true, force = false } = {}) {
-      const el = document.getElementById(`work-${id}`);
-      if (!el) return;
-
-      const content = el.value;
-      const key = String(id);
-
-      if (!force && !state.workDraft.dirty.has(key)) return;
-
-      setWorkSaveBadge(id, 'saving');
-      haptic?.impactOccurred?.('light');
+    tg.showConfirm("Ushbu ishni o'chirmoqchimisiz?", async ok => {
+      if (!ok) return;
 
       const { error } = await supabaseClient
         .from('reports')
-        .update({ content })
+        .delete()
         .eq('id', id);
 
       if (error) {
-        setWorkSaveBadge(id, 'error');
-        if (!silent) showToast('Saqlanmadi: ' + error.message, 'bad', 2600);
+        showToast('O‘chmadi: ' + error.message, 'bad', 2600);
         return;
       }
 
-      state.workDraft.dirty.delete(key);
-      state.workDraft.lastSavedAt.set(key, Date.now());
+      showToast('🗑️ O‘chirildi', 'ok', 1200);
+      loadWork();
+    });
+  }
 
-      setWorkSaveBadge(id, 'saved');
-      if (!silent) showToast('✅ Saqlandi', 'ok', 1200);
-      haptic?.notificationOccurred?.('success');
+  async function loadPlans() {
+    if (!userId) {
+      planList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
+      return;
+    }
+    if (!state.selectedEmployeeId) {
+      planList.innerHTML = '<div class="empty">Avval xodim tanlang</div>';
+      return;
     }
 
-    async function deleteReport(id) {
-      haptic?.impactOccurred?.('medium');
+    const date = planDate.value || todayISO();
+    planList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
 
-      tg.showConfirm("Ushbu ishni o'chirmoqchimisiz?", async ok => {
-        if (!ok) return;
+    let q = supabaseClient
+      .from('task_plans')
+      .select('*')
+      .eq('creator_id', userId)
+      .eq('assignee_tg_id', state.selectedEmployeeId)
+      .order('plan_date', { ascending: true })
+      .order('created_at', { ascending: true });
 
-        const { error } = await supabaseClient
-          .from('reports')
-          .delete()
-          .eq('id', id);
-
-        if (error) {
-          showToast('O‘chmadi: ' + error.message, 'bad', 2600);
-          return;
-        }
-
-        showToast('🗑️ O‘chirildi', 'ok', 1200);
-        loadWork();
-      });
+    if (state.planMode === 'day') {
+      q = q.eq('plan_date', date);
+    } else {
+      const { startISO, endISO } = getWeekRange(date);
+      q = q.gte('plan_date', startISO).lte('plan_date', endISO);
     }
 
-    async function loadPlans() {
-      if (!userId) {
-        planList.innerHTML = '<div class="empty">Telegram user topilmadi</div>';
-        return;
-      }
-      if (!state.selectedEmployeeId) {
-        planList.innerHTML = '<div class="empty">Avval xodim tanlang</div>';
-        return;
-      }
+    const { data, error } = await q;
 
-      const date = planDate.value || todayISO();
-      planList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
-
-      let q = supabaseClient
-        .from('task_plans')
-        .select('*')
-        .eq('creator_id', userId)
-        .eq('assignee_tg_id', state.selectedEmployeeId)
-        .order('plan_date', { ascending: true })
-        .order('created_at', { ascending: true });
-
-      if (state.planMode === 'day') {
-        q = q.eq('plan_date', date);
-      } else {
-        const { startISO, endISO } = getWeekRange(date);
-        q = q.gte('plan_date', startISO).lte('plan_date', endISO);
-      }
-
-      const { data, error } = await q;
-
-      if (error) {
-        planList.innerHTML = '<div class="empty">Planner jadvali yo\'q yoki xatolik</div>';
-        return;
-      }
-
-      const items = data || [];
-      state.cache.plans = items;
-      planCount.textContent = String(items.length);
-      renderPlans();
+    if (error) {
+      planList.innerHTML = '<div class="empty">Planner jadvali yo\'q yoki xatolik</div>';
+      return;
     }
 
-    function planStatusBadge(status) {
-      if (status === 'sent') return '<span class="badge mini ok">🟢 Yuborilgan</span>';
-      if (status === 'queued') return '<span class="badge mini warn">🟡 Navbatda</span>';
-      return '<span class="badge mini">🟣 Draft</span>';
+    const items = data || [];
+    state.cache.plans = items;
+    planCount.textContent = String(items.length);
+    renderPlans();
+  }
+
+  function planStatusBadge(status) {
+    if (status === 'sent') return '<span class="badge mini ok">🟢 Yuborilgan</span>';
+    if (status === 'queued') return '<span class="badge mini warn">🟡 Navbatda</span>';
+    return '<span class="badge mini">🟣 Draft</span>';
+  }
+
+  function renderPlans() {
+    const items = state.cache.plans || [];
+    if (!items.length) {
+      planList.innerHTML = '<div class="empty">Reja yo\'q. Task qo\'shing ✨</div>';
+      return;
     }
 
-    function renderPlans() {
-      const items = state.cache.plans || [];
-      if (!items.length) {
-        planList.innerHTML = '<div class="empty">Reja yo\'q. Task qo\'shing ✨</div>';
-        return;
-      }
+    planList.innerHTML = '';
 
-      planList.innerHTML = '';
-
-      if (state.planMode === 'week') {
-        const groups = {};
-        items.forEach(p => {
-          const d = p.plan_date || todayISO();
-          if (!groups[d]) groups[d] = [];
-          groups[d].push(p);
-        });
-
-        Object.keys(groups).sort().forEach(date => {
-          const header = document.createElement('div');
-          header.className = 'hintLine';
-          header.innerHTML = `<b>📅 ${escapeHtml(formatNiceDate(date))}</b> — ${groups[date].length} ta`;
-          planList.appendChild(header);
-
-          groups[date].forEach(p => planList.appendChild(buildPlanCard(p)));
-        });
-      } else {
-        items.forEach(p => planList.appendChild(buildPlanCard(p)));
-      }
-
-      planList.querySelectorAll('[data-pdel]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-pdel');
-          await deletePlan(id);
-        });
+    if (state.planMode === 'week') {
+      const groups = {};
+      items.forEach(p => {
+        const d = p.plan_date || todayISO();
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(p);
       });
 
-      planList.querySelectorAll('[data-pedit]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-pedit');
-          await editPlan(id);
-        });
+      Object.keys(groups).sort().forEach(date => {
+        const header = document.createElement('div');
+        header.className = 'hintLine';
+        header.innerHTML = `<b>📅 ${escapeHtml(formatNiceDate(date))}</b> — ${groups[date].length} ta`;
+        planList.appendChild(header);
+
+        groups[date].forEach(p => planList.appendChild(buildPlanCard(p)));
       });
+    } else {
+      items.forEach(p => planList.appendChild(buildPlanCard(p)));
     }
 
-    function buildPlanCard(p) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
+    planList.querySelectorAll('[data-pdel]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-pdel');
+        await deletePlan(id);
+      });
+    });
+
+    planList.querySelectorAll('[data-pedit]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-pedit');
+        await editPlan(id);
+      });
+    });
+  }
+
+  function buildPlanCard(p) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
         <div class="cardHeader" style="margin-bottom:8px;">
           <div class="cardTitle">📌 Task</div>
           <div class="cardMeta">${planStatusBadge(p.status)}</div>
@@ -1402,304 +1555,304 @@
           <button class="btn btnGhost" data-pedit="${p.id}">✏️ Edit</button>
         </div>
       `;
-      return card;
+    return card;
+  }
+
+  async function addPlan() {
+    if (!userId) return;
+    const date = planDate.value || todayISO();
+    const text = (planText.value || '').trim();
+
+    if (!text) {
+      haptic?.notificationOccurred?.('error');
+      showToast('Task matnini yozing', 'warn', 1800);
+      return;
+    }
+    if (!state.selectedEmployeeId) {
+      showToast('Xodim tanlanmagan', 'warn', 1800);
+      return;
     }
 
-    async function addPlan() {
-      if (!userId) return;
-      const date = planDate.value || todayISO();
-      const text = (planText.value || '').trim();
+    haptic?.impactOccurred?.('light');
 
-      if (!text) {
-        haptic?.notificationOccurred?.('error');
-        showToast('Task matnini yozing', 'warn', 1800);
-        return;
-      }
-      if (!state.selectedEmployeeId) {
-        showToast('Xodim tanlanmagan', 'warn', 1800);
-        return;
-      }
+    const { error } = await supabaseClient
+      .from('task_plans')
+      .insert([{
+        creator_id: userId,
+        assignee_tg_id: state.selectedEmployeeId,
+        task_text: text,
+        plan_date: date,
+        status: 'draft'
+      }]);
 
-      haptic?.impactOccurred?.('light');
+    if (error) {
+      showToast('Qo‘shilmadi: ' + error.message, 'bad', 2600);
+      return;
+    }
+
+    planText.value = '';
+    autoGrowTextarea(planText);
+    haptic?.notificationOccurred?.('success');
+    showToast('➕ Qo‘shildi', 'ok', 1200);
+    loadPlans();
+  }
+
+  async function deletePlan(id) {
+    haptic?.impactOccurred?.('medium');
+    tg.showConfirm("Taskni o'chirmoqchimisiz?", async ok => {
+      if (!ok) return;
 
       const { error } = await supabaseClient
         .from('task_plans')
-        .insert([{
-          creator_id: userId,
-          assignee_tg_id: state.selectedEmployeeId,
-          task_text: text,
-          plan_date: date,
-          status: 'draft'
-        }]);
-
-      if (error) {
-        showToast('Qo‘shilmadi: ' + error.message, 'bad', 2600);
-        return;
-      }
-
-      planText.value = '';
-      autoGrowTextarea(planText);
-      haptic?.notificationOccurred?.('success');
-      showToast('➕ Qo‘shildi', 'ok', 1200);
-      loadPlans();
-    }
-
-    async function deletePlan(id) {
-      haptic?.impactOccurred?.('medium');
-      tg.showConfirm("Taskni o'chirmoqchimisiz?", async ok => {
-        if (!ok) return;
-
-        const { error } = await supabaseClient
-          .from('task_plans')
-          .delete()
-          .eq('id', id)
-          .eq('creator_id', userId);
-
-        if (error) {
-          showToast('O‘chmadi: ' + error.message, 'bad', 2600);
-          return;
-        }
-
-        showToast('🗑️ O‘chirildi', 'ok', 1200);
-        loadPlans();
-      });
-    }
-
-    async function editPlan(id) {
-      const { data, error } = await supabaseClient
-        .from('task_plans')
-        .select('task_text')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (error) {
-        showToast('Xatolik: ' + error.message, 'bad', 2600);
-        return;
-      }
-
-      const current = data?.task_text || '';
-
-      const newText = await openModal({
-        title: 'Taskni tahrirlash',
-        hint: 'Ctrl/Cmd + Enter — Saqlash',
-        value: current,
-        placeholder: 'Task matnini yozing...'
-      });
-
-      if (newText === null) return;
-      if (!String(newText).trim()) {
-        showToast('Bo‘sh matn saqlanmaydi', 'warn', 1600);
-        return;
-      }
-
-      const { error: uerr } = await supabaseClient
-        .from('task_plans')
-        .update({ task_text: String(newText).trim() })
+        .delete()
         .eq('id', id)
         .eq('creator_id', userId);
 
-      if (uerr) {
-        showToast('Saqlanmadi: ' + uerr.message, 'bad', 2600);
-        return;
-      }
-
-      showToast('✅ Saqlandi', 'ok', 1200);
-      loadPlans();
-    }
-
-    async function dispatchPlans() {
-      const date = planDate.value || todayISO();
-      if (!userId) return;
-      if (!state.selectedEmployeeId && state.planMode === 'day') {
-        showToast('Xodim tanlanmagan', 'warn', 1800);
-        return;
-      }
-
-      let start = date, end = date;
-      if (state.planMode === 'week') {
-        const r = getWeekRange(date);
-        start = r.startISO;
-        end = r.endISO;
-      }
-
-      let q = supabaseClient
-        .from('task_plans')
-        .select('*')
-        .eq('creator_id', userId)
-        .in('status', ['draft', 'queued']);
-
-      if (state.planMode === 'day') {
-        q = q.eq('assignee_tg_id', state.selectedEmployeeId).eq('plan_date', date);
-      } else {
-        q = q.eq('assignee_tg_id', state.selectedEmployeeId).gte('plan_date', start).lte('plan_date', end);
-      }
-
-      const { data, error } = await q;
-
       if (error) {
-        showToast('Xatolik: ' + error.message, 'bad', 2600);
+        showToast('O‘chmadi: ' + error.message, 'bad', 2600);
         return;
       }
 
-      const items = data || [];
-      if (!items.length) {
-        showToast('Yuborish uchun draft task yo‘q', 'warn', 2000);
-        return;
-      }
+      showToast('🗑️ O‘chirildi', 'ok', 1200);
+      loadPlans();
+    });
+  }
 
-      const label = state.planMode === 'week'
-        ? `📤 ${formatNiceDate(start)} — ${formatNiceDate(end)} rejasini yuboramizmi?`
-        : `📤 ${formatNiceDate(date)} rejasini yuboramizmi?`;
+  async function editPlan(id) {
+    const { data, error } = await supabaseClient
+      .from('task_plans')
+      .select('task_text')
+      .eq('id', id)
+      .maybeSingle();
 
-      tg.showConfirm(label, async ok => {
-        if (!ok) return;
-
-        const ids = items.map(x => x.id);
-        await supabaseClient
-          .from('task_plans')
-          .update({ status: 'queued' })
-          .in('id', ids)
-          .eq('creator_id', userId);
-
-        try {
-          tg.sendData(JSON.stringify({
-            type: 'dispatch_plans',
-            mode: state.planMode,
-            employee_id: state.selectedEmployeeId,
-            date,
-            start_date: start,
-            end_date: end
-          }));
-          haptic?.notificationOccurred?.('success');
-          showToast('✅ Navbatga qo‘yildi', 'ok', 1600);
-        } catch {
-          showToast('Botga data yuborilmadi', 'bad', 2400);
-        }
-
-        loadPlans();
-      });
+    if (error) {
+      showToast('Xatolik: ' + error.message, 'bad', 2600);
+      return;
     }
 
-    async function dispatchReports() {
-      if (!userId) return;
+    const current = data?.task_text || '';
 
-      const dirty = Array.from(state.workDraft.dirty);
-      if (dirty.length) {
-        tg.showConfirm(`Sizda ${dirty.length} ta Draft bor. Avval saqlaymizmi?`, async ok => {
-          if (!ok) return;
-          for (const id of dirty) await updateReport(id, { silent: true, force: true });
-          await dispatchReports();
-        });
-        return;
-      }
+    const newText = await openModal({
+      title: 'Taskni tahrirlash',
+      hint: 'Ctrl/Cmd + Enter — Saqlash',
+      value: current,
+      placeholder: 'Task matnini yozing...'
+    });
 
-      tg.showConfirm("Pending ishlarni botga yuboramizmi?", async ok => {
-        if (!ok) return;
-
-        try {
-          tg.sendData(JSON.stringify({
-            type: 'dispatch_reports',
-            filter: state.workFilter,
-            search: state.workSearch || ''
-          }));
-          showToast('🚀 Botga yuborildi (signal)', 'ok', 1600);
-        } catch {
-          showToast('Botga data yuborilmadi', 'bad', 2400);
-        }
-      });
+    if (newText === null) return;
+    if (!String(newText).trim()) {
+      showToast('Bo‘sh matn saqlanmaydi', 'warn', 1600);
+      return;
     }
 
-    // ================== ANALYTICS ==================
-    function getRangeDates() {
-      const now = new Date();
-      const start = new Date(now);
-      const end = new Date(now);
+    const { error: uerr } = await supabaseClient
+      .from('task_plans')
+      .update({ task_text: String(newText).trim() })
+      .eq('id', id)
+      .eq('creator_id', userId);
 
-      if (state.range === 'week') {
-        const day = (now.getDay() + 6) % 7;
-        start.setDate(now.getDate() - day);
-      }
-      if (state.range === 'month') {
-        start.setDate(1);
-      }
-
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
+    if (uerr) {
+      showToast('Saqlanmadi: ' + uerr.message, 'bad', 2600);
+      return;
     }
-    async function loadAnalytics() {
-      if (state.role !== 'boss') return;
 
-      analyticsList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+    showToast('✅ Saqlandi', 'ok', 1200);
+    loadPlans();
+  }
 
-      const { start, end, startISO, endISO } = getRangeDates(state.range);
+  async function dispatchPlans() {
+    const date = planDate.value || todayISO();
+    if (!userId) return;
+    if (!state.selectedEmployeeId && state.planMode === 'day') {
+      showToast('Xodim tanlanmagan', 'warn', 1800);
+      return;
+    }
 
-      // Plans (range: plan_date)
-      const { data: plans } = await supabaseClient
+    let start = date, end = date;
+    if (state.planMode === 'week') {
+      const r = getWeekRange(date);
+      start = r.startISO;
+      end = r.endISO;
+    }
+
+    let q = supabaseClient
+      .from('task_plans')
+      .select('*')
+      .eq('creator_id', userId)
+      .in('status', ['draft', 'queued']);
+
+    if (state.planMode === 'day') {
+      q = q.eq('assignee_tg_id', state.selectedEmployeeId).eq('plan_date', date);
+    } else {
+      q = q.eq('assignee_tg_id', state.selectedEmployeeId).gte('plan_date', start).lte('plan_date', end);
+    }
+
+    const { data, error } = await q;
+
+    if (error) {
+      showToast('Xatolik: ' + error.message, 'bad', 2600);
+      return;
+    }
+
+    const items = data || [];
+    if (!items.length) {
+      showToast('Yuborish uchun draft task yo‘q', 'warn', 2000);
+      return;
+    }
+
+    const label = state.planMode === 'week'
+      ? `📤 ${formatNiceDate(start)} — ${formatNiceDate(end)} rejasini yuboramizmi?`
+      : `📤 ${formatNiceDate(date)} rejasini yuboramizmi?`;
+
+    tg.showConfirm(label, async ok => {
+      if (!ok) return;
+
+      const ids = items.map(x => x.id);
+      await supabaseClient
         .from('task_plans')
-        .select('*')
-        .gte('plan_date', startISO)
-        .lte('plan_date', endISO);
+        .update({ status: 'queued' })
+        .in('id', ids)
+        .eq('creator_id', userId);
 
-      // Reports (range: created_at)
-      const { data: reps } = await supabaseClient
-        .from('reports')
-        .select('*')
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
-
-      const employees = state.employees || [];
-      teamCount.textContent = String(employees.length);
-
-      const planBy = {};
-      (plans || []).forEach(p => {
-        const k = String(p.assignee_tg_id || '');
-        if (!planBy[k]) planBy[k] = { total: 0, sent: 0, queued: 0, draft: 0 };
-        planBy[k].total++;
-        if (p.status === 'sent') planBy[k].sent++;
-        else if (p.status === 'queued') planBy[k].queued++;
-        else planBy[k].draft++;
-      });
-
-      const repBy = {};
-      (reps || []).forEach(r => {
-        const k = String(r.user_id || '');
-        if (!repBy[k]) repBy[k] = { total: 0, sent: 0, pending: 0 };
-        repBy[k].total++;
-        if (r.status === 'sent') repBy[k].sent++;
-        else repBy[k].pending++;
-      });
-
-      analyticsList.innerHTML = '';
-      if (!employees.length) {
-        analyticsList.innerHTML = '<div class="empty">Xodimlar yo‘q</div>';
-        return;
+      try {
+        tg.sendData(JSON.stringify({
+          type: 'dispatch_plans',
+          mode: state.planMode,
+          employee_id: state.selectedEmployeeId,
+          date,
+          start_date: start,
+          end_date: end
+        }));
+        haptic?.notificationOccurred?.('success');
+        showToast('✅ Navbatga qo‘yildi', 'ok', 1600);
+      } catch {
+        showToast('Botga data yuborilmadi', 'bad', 2400);
       }
 
-      const rangeLabel = (rng) => rng === 'today' ? 'Bugun' : (rng === 'week' ? 'Hafta' : 'Oy');
+      loadPlans();
+    });
+  }
 
-      // 1) Xodimlar statistikasi + SORT (top performers)
-      const rows = employees.map(emp => {
-        const k = String(emp.id);
-        const p = planBy[k] || { total: 0, sent: 0, queued: 0, draft: 0 };
-        const r = repBy[k] || { total: 0, sent: 0, pending: 0 };
+  async function dispatchReports() {
+    if (!userId) return;
 
-        // "Eng ko'p ish bajargan" uchun score: umumiy ishlar soni (sent + pending)
-        const score = r.total;
-
-        return { emp, p, r, score };
+    const dirty = Array.from(state.workDraft.dirty);
+    if (dirty.length) {
+      tg.showConfirm(`Sizda ${dirty.length} ta Draft bor. Avval saqlaymizmi?`, async ok => {
+        if (!ok) return;
+        for (const id of dirty) await updateReport(id, { silent: true, force: true });
+        await dispatchReports();
       });
+      return;
+    }
 
-      rows.sort((a, b) =>
-        (b.score - a.score) ||
-        (b.r.sent - a.r.sent) ||
-        String(a.emp.name).localeCompare(String(b.emp.name))
-      );
+    tg.showConfirm("Pending ishlarni botga yuboramizmi?", async ok => {
+      if (!ok) return;
 
-      // 2) Ranking card (TOP)
-      const top = rows.filter(x => x.r.total > 0).slice(0, 10);
-      const topHtml = top.length
-        ? top.map((x, i) => `
+      try {
+        tg.sendData(JSON.stringify({
+          type: 'dispatch_reports',
+          filter: state.workFilter,
+          search: state.workSearch || ''
+        }));
+        showToast('🚀 Botga yuborildi (signal)', 'ok', 1600);
+      } catch {
+        showToast('Botga data yuborilmadi', 'bad', 2400);
+      }
+    });
+  }
+
+  // ================== ANALYTICS ==================
+  function getRangeDates() {
+    const now = new Date();
+    const start = new Date(now);
+    const end = new Date(now);
+
+    if (state.range === 'week') {
+      const day = (now.getDay() + 6) % 7;
+      start.setDate(now.getDate() - day);
+    }
+    if (state.range === 'month') {
+      start.setDate(1);
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+  async function loadAnalytics() {
+    if (state.role !== 'boss') return;
+
+    analyticsList.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+
+    const { start, end, startISO, endISO } = getRangeDates(state.range);
+
+    // Plans (range: plan_date)
+    const { data: plans } = await supabaseClient
+      .from('task_plans')
+      .select('*')
+      .gte('plan_date', startISO)
+      .lte('plan_date', endISO);
+
+    // Reports (range: created_at)
+    const { data: reps } = await supabaseClient
+      .from('reports')
+      .select('*')
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+
+    const employees = state.employees || [];
+    teamCount.textContent = String(employees.length);
+
+    const planBy = {};
+    (plans || []).forEach(p => {
+      const k = String(p.assignee_tg_id || '');
+      if (!planBy[k]) planBy[k] = { total: 0, sent: 0, queued: 0, draft: 0 };
+      planBy[k].total++;
+      if (p.status === 'sent') planBy[k].sent++;
+      else if (p.status === 'queued') planBy[k].queued++;
+      else planBy[k].draft++;
+    });
+
+    const repBy = {};
+    (reps || []).forEach(r => {
+      const k = String(r.user_id || '');
+      if (!repBy[k]) repBy[k] = { total: 0, sent: 0, pending: 0 };
+      repBy[k].total++;
+      if (r.status === 'sent') repBy[k].sent++;
+      else repBy[k].pending++;
+    });
+
+    analyticsList.innerHTML = '';
+    if (!employees.length) {
+      analyticsList.innerHTML = '<div class="empty">Xodimlar yo‘q</div>';
+      return;
+    }
+
+    const rangeLabel = (rng) => rng === 'today' ? 'Bugun' : (rng === 'week' ? 'Hafta' : 'Oy');
+
+    // 1) Xodimlar statistikasi + SORT (top performers)
+    const rows = employees.map(emp => {
+      const k = String(emp.id);
+      const p = planBy[k] || { total: 0, sent: 0, queued: 0, draft: 0 };
+      const r = repBy[k] || { total: 0, sent: 0, pending: 0 };
+
+      // "Eng ko'p ish bajargan" uchun score: umumiy ishlar soni (sent + pending)
+      const score = r.total;
+
+      return { emp, p, r, score };
+    });
+
+    rows.sort((a, b) =>
+      (b.score - a.score) ||
+      (b.r.sent - a.r.sent) ||
+      String(a.emp.name).localeCompare(String(b.emp.name))
+    );
+
+    // 2) Ranking card (TOP)
+    const top = rows.filter(x => x.r.total > 0).slice(0, 10);
+    const topHtml = top.length
+      ? top.map((x, i) => `
           <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
             <div style="font-weight:900;">${i + 1}-o‘rin — ${escapeHtml(x.emp.name)}</div>
             <div class="cardMeta" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
@@ -1708,11 +1861,11 @@
             </div>
           </div>
         `).join('')
-        : `<div class="tiny">Hali bu davrda ishlar yo‘q 😅</div>`;
+      : `<div class="tiny">Hali bu davrda ishlar yo‘q 😅</div>`;
 
-      const rankingCard = document.createElement('div');
-      rankingCard.className = 'card';
-      rankingCard.innerHTML = `
+    const rankingCard = document.createElement('div');
+    rankingCard.className = 'card';
+    rankingCard.innerHTML = `
         <div class="cardHeader">
           <div class="cardTitle">🏆 Eng ko‘p ish bajargan xodimlar</div>
           <div class="cardMeta">
@@ -1724,15 +1877,15 @@
           ${topHtml}
         </div>
       `;
-      analyticsList.appendChild(rankingCard);
+    analyticsList.appendChild(rankingCard);
 
-      // 3) Xodim kartalari (sorted)
-      rows.forEach((row, idx) => {
-        const { emp, p, r } = row;
+    // 3) Xodim kartalari (sorted)
+    rows.forEach((row, idx) => {
+      const { emp, p, r } = row;
 
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
           <div class="cardHeader">
             <div class="cardTitle">#${idx + 1} · 👤 ${escapeHtml(emp.name)}</div>
             <div class="cardMeta">
@@ -1747,153 +1900,154 @@
             Ishlar: 🟡 Pending ${r.pending} · 🟢 Sent ${r.sent}
           </div>
         `;
-        analyticsList.appendChild(card);
-      });
-    }
-
-    // ================== EVENTS ==================
-    tabs.forEach(t => {
-      t.addEventListener('click', () => {
-        const key = t.dataset.tab;
-        if (key === 'analytics' && state.role !== 'boss') return;
-        setActiveTab(key);
-        refreshActiveTab();
-      });
+      analyticsList.appendChild(card);
     });
+  }
 
-    refreshBtn.addEventListener('click', () => refreshActiveTab());
-    secondaryCta.addEventListener('click', () => refreshActiveTab());
-    workFilters.querySelectorAll('.pill').forEach(p => {
-      p.addEventListener('click', () => {
-        workFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
-        p.classList.add('active');
-        state.workFilter = p.dataset.filter;
-        persistState();
-        loadWork();
-      });
+  // ================== EVENTS ==================
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      const key = t.dataset.tab;
+      if (key === 'analytics' && state.role !== 'boss') return;
+      setActiveTab(key);
+      refreshActiveTab();
     });
+  });
 
-    workSearch.value = state.workSearch || '';
-    workSearch.addEventListener('input', () => {
-      state.workSearch = workSearch.value || '';
+  refreshBtn.addEventListener('click', () => refreshActiveTab());
+  secondaryCta.addEventListener('click', () => refreshActiveTab());
+  workFilters.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      workFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      state.workFilter = p.dataset.filter;
       persistState();
-      renderWork();
-    });
-
-    planDate.value = planDate.value || todayISO();
-    planText.addEventListener('input', () => autoGrowTextarea(planText));
-    autoGrowTextarea(planText);
-
-    modeDay.addEventListener('click', () => {
-      state.planMode = 'day';
-      persistState();
-      modeDay.classList.add('active');
-      modeWeek.classList.remove('active');
-      setActiveTab('planner');
-      loadPlans();
-    });
-
-    modeWeek.addEventListener('click', () => {
-      state.planMode = 'week';
-      persistState();
-      modeWeek.classList.add('active');
-      modeDay.classList.remove('active');
-      setActiveTab('planner');
-      loadPlans();
-    });
-
-    if (state.planMode === 'week') {
-      modeWeek.classList.add('active'); modeDay.classList.remove('active');
-    } else {
-      modeDay.classList.add('active'); modeWeek.classList.remove('active');
-    }
-
-    planDate.addEventListener('change', () => loadPlans());
-
-    addPlanBtn.addEventListener('click', addPlan);
-    clearPlanBtn.addEventListener('click', () => {
-      planText.value = '';
-      autoGrowTextarea(planText);
-      showToast('🧹 Tozalandi', 'ok', 1000);
-    });
-
-    rangeFilters.querySelectorAll('.pill').forEach(p => {
-      p.addEventListener('click', () => {
-        rangeFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
-        p.classList.add('active');
-        state.range = p.dataset.range;
-        persistState();
-        loadAnalytics();
-      });
-    });
-
-    primaryCta.addEventListener('click', async () => {
-      const disabled = primaryCta.getAttribute('aria-disabled') === 'true';
-      if (disabled) return;
-
-      if (state.tab === 'work') return dispatchReports();
-      if (state.tab === 'planner') return dispatchPlans();
-      if (state.tab === 'analytics') return loadAnalytics();
-    });
-
-    function refreshActiveTab() {
-      if (state.tab === 'work') return loadWork();
-      if (state.tab === 'planner') return loadPlans();
-      if (state.tab === 'analytics') return loadAnalytics();
-    }
-
-    // ================== REALTIME (OPTIONAL) ==================
-    function setupRealtime() {
-      if (!ENABLE_REALTIME) return;
-      if (!supabaseClient?.channel) return;
-
-      let t = null;
-      const softRefresh = () => {
-        if (t) return;
-        t = setTimeout(() => { t = null; refreshActiveTab(); }, 700);
-      };
-
-      try {
-        supabaseClient
-          .channel('miniapp-reports-' + String(userId))
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'reports',
-            filter: 'user_id=eq.' + String(userId)
-          }, () => softRefresh())
-          .subscribe();
-
-        supabaseClient
-          .channel('miniapp-plans-' + String(userId))
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'task_plans',
-            filter: 'creator_id=eq.' + String(userId)
-          }, () => softRefresh())
-          .subscribe();
-      } catch {}
-    }
-
-    async function init() {
-      if (!userId) showToast('Telegram user topilmadi', 'bad', 2500);
-
-      workFilters.querySelectorAll('.pill').forEach(x => x.classList.toggle('active', x.dataset.filter === state.workFilter));
-
-      await loadRole();
-      await loadEmployees();
-
-      setActiveTab(state.tab === 'analytics' && state.role !== 'boss' ? 'work' : state.tab);
-
       loadWork();
-      loadPlans();
-      if (state.role === 'boss') loadAnalytics();
+    });
+  });
 
-      setupRealtime();
-    }
+  workSearch.value = state.workSearch || '';
+  workSearch.addEventListener('input', () => {
+    state.workSearch = workSearch.value || '';
+    persistState();
+    renderWork();
+  });
 
-    init();
-  </script>
+  planDate.value = planDate.value || todayISO();
+  planText.addEventListener('input', () => autoGrowTextarea(planText));
+  autoGrowTextarea(planText);
+
+  modeDay.addEventListener('click', () => {
+    state.planMode = 'day';
+    persistState();
+    modeDay.classList.add('active');
+    modeWeek.classList.remove('active');
+    setActiveTab('planner');
+    loadPlans();
+  });
+
+  modeWeek.addEventListener('click', () => {
+    state.planMode = 'week';
+    persistState();
+    modeWeek.classList.add('active');
+    modeDay.classList.remove('active');
+    setActiveTab('planner');
+    loadPlans();
+  });
+
+  if (state.planMode === 'week') {
+    modeWeek.classList.add('active'); modeDay.classList.remove('active');
+  } else {
+    modeDay.classList.add('active'); modeWeek.classList.remove('active');
+  }
+
+  planDate.addEventListener('change', () => loadPlans());
+
+  addPlanBtn.addEventListener('click', addPlan);
+  clearPlanBtn.addEventListener('click', () => {
+    planText.value = '';
+    autoGrowTextarea(planText);
+    showToast('🧹 Tozalandi', 'ok', 1000);
+  });
+
+  rangeFilters.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      rangeFilters.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      state.range = p.dataset.range;
+      persistState();
+      loadAnalytics();
+    });
+  });
+
+  primaryCta.addEventListener('click', async () => {
+    const disabled = primaryCta.getAttribute('aria-disabled') === 'true';
+    if (disabled) return;
+
+    if (state.tab === 'work') return dispatchReports();
+    if (state.tab === 'planner') return dispatchPlans();
+    if (state.tab === 'analytics') return loadAnalytics();
+  });
+
+  function refreshActiveTab() {
+    if (state.tab === 'work') return loadWork();
+    if (state.tab === 'planner') return loadPlans();
+    if (state.tab === 'analytics') return loadAnalytics();
+  }
+
+  // ================== REALTIME (OPTIONAL) ==================
+  function setupRealtime() {
+    if (!ENABLE_REALTIME) return;
+    if (!supabaseClient?.channel) return;
+
+    let t = null;
+    const softRefresh = () => {
+      if (t) return;
+      t = setTimeout(() => { t = null; refreshActiveTab(); }, 700);
+    };
+
+    try {
+      supabaseClient
+        .channel('miniapp-reports-' + String(userId))
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'reports',
+          filter: 'user_id=eq.' + String(userId)
+        }, () => softRefresh())
+        .subscribe();
+
+      supabaseClient
+        .channel('miniapp-plans-' + String(userId))
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'task_plans',
+          filter: 'creator_id=eq.' + String(userId)
+        }, () => softRefresh())
+        .subscribe();
+    } catch { }
+  }
+
+  async function init() {
+    if (!userId) showToast('Telegram user topilmadi', 'bad', 2500);
+
+    workFilters.querySelectorAll('.pill').forEach(x => x.classList.toggle('active', x.dataset.filter === state.workFilter));
+
+    await loadRole();
+    await loadEmployees();
+
+    setActiveTab(state.tab === 'analytics' && state.role !== 'boss' ? 'work' : state.tab);
+
+    loadWork();
+    loadPlans();
+    if (state.role === 'boss') loadAnalytics();
+
+    setupRealtime();
+  }
+
+  init();
+</script>
 </body>
+
 </html>

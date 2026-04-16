@@ -1412,7 +1412,7 @@ bot.command('report', async (ctx) => {
 
   const nameMap = new Map((users || []).map((u) => [u.telegram_id, u.full_name]));
 
-  let message = `📌 <b>Ertangi vazifalar</b> (${formatUzDate(planDate)})\n\n`;
+  let message = `📌 Ertangi vazifalar (${formatUzDate(planDate)})\n\n`;
 
   const grouped = {};
   for (const t of tasks) {
