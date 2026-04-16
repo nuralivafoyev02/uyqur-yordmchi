@@ -254,8 +254,7 @@ const buildTaskmodeEmployeeText = ({ companyName, inactiveSections, activityLine
   return (
     `🏗 <b>${escapeHTML(companyName)}</b> bo‘yicha holat tekshirildi.\n\n` +
     `❗ <b>No-faol bo‘limlar:</b>\n${list}\n\n` +
-    `Iltimos, shu bo‘limlar bilan aloqaga chiqib, nofaollik sababini aniqlang va natijani qayta yuboring.` +
-    `${activityText}`
+    `Iltimos, shu bo‘limlar bilan aloqaga chiqib, nofaollik sababini aniqlang va natijani qayta yuboring.`
   );
 };
 
