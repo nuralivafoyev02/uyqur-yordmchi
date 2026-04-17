@@ -26,10 +26,18 @@ const BOSS_ID = (() => {
   return Number.isFinite(n) ? n : ADMIN_ID;
 })();
 
+const normalizeHttpUrl = (value, fallback) => {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withProtocol.replace(/\/+$/, '');
+};
+
 // WebApp URL (fix: avoid https://https://...)
-const WEB_APP_URL = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'https://uyqur-yordmchi.vercel.app';
+const WEB_APP_URL = normalizeHttpUrl(
+  process.env.WEB_APP_URL || process.env.VERCEL_URL,
+  'https://uyqur-yordmchi.vercel.app'
+);
 
 // Optional: ClickUp status mapping (some workspaces use custom status names)
 const CLICKUP_STATUS_PROCESS = process.env.CLICKUP_STATUS_PROCESS || 'in progress';
@@ -49,6 +57,7 @@ const TASKMODE_COMPANY_OWNERS = parseJSONEnv(process.env.TASKMODE_COMPANY_OWNERS
 const TASKMODE_ALLOWED_IDS = new Set([ADMIN_ID, ...TASK_PLANNERS]);
 const USER_CACHE_TTL_MS = 60 * 1000;
 const CLICKUP_EVENTS_TO_PROCESS = new Set(['taskCreated', 'taskUpdated', 'taskAssigneeUpdated', 'taskStatusUpdated']);
+const CLICKUP_TASK_FETCH_DELAYS_MS = [0, 250, 600, 1100, 1700];
 const usersCache = {
   value: null,
   expiresAt: 0,
@@ -103,6 +112,7 @@ const chunkArray = (items, size = 2) => {
 const normalizePhone = (value) => String(value || '').replace(/\D+/g, '');
 const normalizeHandle = (value) => String(value || '').trim().replace(/^@+/, '').toLowerCase();
 const normalizeAssigneeId = (value) => String(value ?? '').trim();
+const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 const normalizeCompanyKey = (value) =>
   String(value || '')
     .toLowerCase()
@@ -541,30 +551,125 @@ const deleteTaskMessageRow = async (task_id, assignee_id) => {
   if (error) logError('Supabase delete clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
 };
 
-const getUserMapByClickUpAssignee = async (assignee) => {
-  const assigneeId = normalizeAssigneeId(assignee?.id);
-  const numericAssigneeId = Number(assigneeId);
-  const candidates = unique([
-    assigneeId,
-    Number.isFinite(numericAssigneeId) ? numericAssigneeId : null,
-  ].filter((value) => value !== null && value !== ''));
+const getClickUpAssigneeId = (assignee) => normalizeAssigneeId(
+  assignee?.id
+  ?? assignee?.user?.id
+  ?? assignee?.userid
+  ?? assignee?.user?.userid
+  ?? assignee?.user_id
+);
 
-  for (const candidate of candidates) {
-    const { data, error } = await supabase
-      .from('users_mapping')
-      .select('telegram_id, full_name, clickup_user_id')
-      .eq('clickup_user_id', candidate)
-      .maybeSingle();
+const getClickUpAssigneeUsername = (assignee) =>
+  String(
+    assignee?.username
+    ?? assignee?.user?.username
+    ?? ''
+  ).trim() || null;
 
-    if (error && error.code !== 'PGRST116') {
-      logError('users_mapping select error', { assignee_id: assigneeId, candidate, error: serializeError(error) });
-      continue;
+const getClickUpAssigneeEmail = (assignee) =>
+  normalizeEmail(
+    assignee?.email
+    ?? assignee?.user?.email
+    ?? ''
+  ) || null;
+
+const normalizeClickUpAssignee = (assignee, fallbackSource = null) => {
+  const id = getClickUpAssigneeId(assignee);
+  if (!id) return null;
+
+  return {
+    id,
+    username: getClickUpAssigneeUsername(assignee),
+    email: getClickUpAssigneeEmail(assignee),
+    source: assignee?.source || fallbackSource || null,
+  };
+};
+
+const mergeClickUpAssignees = (...groups) => {
+  const byId = new Map();
+
+  for (const group of groups) {
+    for (const item of group || []) {
+      const normalized = normalizeClickUpAssignee(item);
+      if (!normalized?.id) continue;
+
+      const prev = byId.get(normalized.id) || null;
+      byId.set(normalized.id, {
+        id: normalized.id,
+        username: prev?.username || normalized.username || null,
+        email: prev?.email || normalized.email || null,
+        source: prev?.source || normalized.source || null,
+      });
     }
+  }
 
-    if (data?.telegram_id) return data;
+  return [...byId.values()];
+};
+
+const extractTaskAssignees = (task = {}) => {
+  const items = Array.isArray(task?.assignees) ? task.assignees : [];
+  return mergeClickUpAssignees(
+    items.map((assignee) => normalizeClickUpAssignee(assignee, 'task.assignees')).filter(Boolean)
+  );
+};
+
+const getUserMapByClickUpAssignee = async (assignee) => {
+  const assigneeId = getClickUpAssigneeId(assignee);
+  const assigneeUsername = normalizeHandle(getClickUpAssigneeUsername(assignee));
+  const assigneeEmailHandle = normalizeHandle((getClickUpAssigneeEmail(assignee) || '').split('@')[0]);
+  const numericAssigneeId = assigneeId && /^-?\d+$/.test(assigneeId) ? Number(assigneeId) : null;
+  const idCandidates = new Set(
+    unique([
+      assigneeId,
+      Number.isFinite(numericAssigneeId) ? normalizeAssigneeId(numericAssigneeId) : null,
+    ].filter((value) => value && value !== 'NaN'))
+  );
+  const handleCandidates = new Set(
+    unique([assigneeUsername, assigneeEmailHandle].filter(Boolean))
+  );
+  const users = await getCachedUsers();
+
+  for (const row of users) {
+    const rowClickUpId = normalizeAssigneeId(row?.clickup_user_id);
+    if (!rowClickUpId || !idCandidates.has(rowClickUpId)) continue;
+    if (row?.telegram_id) return { ...row, match_source: 'clickup_user_id' };
+  }
+
+  for (const row of users) {
+    const rowUsername = normalizeHandle(row?.username);
+    if (!rowUsername || !handleCandidates.has(rowUsername)) continue;
+    if (row?.telegram_id) return { ...row, match_source: 'username' };
   }
 
   return null;
+};
+
+const fetchClickUpTaskForWebhook = async (taskId, event) => {
+  let task = null;
+  let lastError = null;
+
+  for (let i = 0; i < CLICKUP_TASK_FETCH_DELAYS_MS.length; i++) {
+    const waitMs = CLICKUP_TASK_FETCH_DELAYS_MS[i];
+    if (waitMs > 0) await delay(waitMs);
+
+    try {
+      task = await clickupRequest(`task/${taskId}`);
+      const assignees = extractTaskAssignees(task);
+      if (assignees.length) {
+        return { task, assignees, attempts: i + 1 };
+      }
+    } catch (err) {
+      lastError = err;
+      logError('ClickUp task fetch error', { task_id: taskId, attempt: i + 1, event, error: serializeError(err) });
+      if (i === CLICKUP_TASK_FETCH_DELAYS_MS.length - 1) throw err;
+    }
+  }
+
+  if (!extractTaskAssignees(task).length) {
+    logWarn('ClickUp task fetched but assignee topilmadi', { task_id: taskId, event, attempts: CLICKUP_TASK_FETCH_DELAYS_MS.length });
+  }
+
+  return { task, assignees: extractTaskAssignees(task), attempts: CLICKUP_TASK_FETCH_DELAYS_MS.length };
 };
 
 // ClickUp API Helper
@@ -661,14 +766,9 @@ const extractWebhookAssignees = (payload = {}) => {
   for (const item of items) {
     if (String(item?.field || '') !== 'assignee_add') continue;
     const after = item?.after;
-    const assigneeId = normalizeAssigneeId(after?.id);
-    if (!assigneeId) continue;
-    byId.set(assigneeId, {
-      id: assigneeId,
-      username: after?.username || null,
-      email: after?.email || null,
-      source: 'history.assignee_add',
-    });
+    const normalized = normalizeClickUpAssignee(after, 'history.assignee_add');
+    if (!normalized?.id) continue;
+    byId.set(normalized.id, normalized);
   }
 
   return [...byId.values()];
@@ -729,27 +829,19 @@ async function handleClickUpWebhook(req) {
     return { ok: true, skipped: true, reason: 'task_id_missing', event: event || null };
   }
 
-  let task;
-  for (let i = 0; i < 3; i++) {
-    try {
-      task = await clickupRequest(`task/${task_id}`);
-    } catch (err) {
-      logError('ClickUp task fetch error', { task_id, attempt: i + 1, event, error: serializeError(err) });
-      if (i === 2) throw err;
-      await delay(500);
-      continue;
-    }
-
-    if (task?.assignees?.length) break;
-    await delay(800);
-  }
-
-  const assignees = task?.assignees?.length ? task.assignees : extractWebhookAssignees(payload);
+  const {
+    task,
+    assignees: taskAssignees,
+    attempts: taskFetchAttempts,
+  } = await fetchClickUpTaskForWebhook(task_id, event);
+  const webhookAssignees = extractWebhookAssignees(payload);
+  const assignees = mergeClickUpAssignees(taskAssignees, webhookAssignees);
   if (!assignees?.length) {
     logWarn('ClickUp webhook skipped: assignee topilmadi', {
       ...buildClickUpPayloadSummary(payload),
       task_status: task?.status?.status || null,
       task_name: task?.name || null,
+      task_fetch_attempts: taskFetchAttempts,
     });
     return { ok: true, skipped: true, reason: 'assignee_missing', event, task_id };
   }
@@ -759,14 +851,15 @@ async function handleClickUpWebhook(req) {
     ...buildClickUpPayloadSummary(payload),
     task_name: task?.name || null,
     task_status: task?.status?.status || null,
-    assignee_ids: assignees.map((assignee) => normalizeAssigneeId(assignee?.id)).filter(Boolean),
+    assignee_ids: assignees.map((assignee) => getClickUpAssigneeId(assignee)).filter(Boolean),
+    task_fetch_attempts: taskFetchAttempts,
   };
   logInfo('ClickUp webhook processing start', summary);
 
   const result = { ok: true, event, task_id, sent: [], updated: [], skipped: [], unmapped: [] };
 
   for (const assignee of assignees) {
-    const assigneeId = normalizeAssigneeId(assignee?.id);
+    const assigneeId = getClickUpAssigneeId(assignee);
     if (!assigneeId) {
       result.skipped.push({ reason: 'assignee_id_missing' });
       continue;
@@ -778,8 +871,8 @@ async function handleClickUpWebhook(req) {
         task_id,
         event,
         assignee_id: assigneeId,
-        assignee_username: assignee?.username || null,
-        assignee_email: assignee?.email || null,
+        assignee_username: getClickUpAssigneeUsername(assignee),
+        assignee_email: getClickUpAssigneeEmail(assignee),
       };
       result.unmapped.push(unmappedInfo);
       logWarn('ClickUp assignee uchun users_mapping topilmadi', unmappedInfo);
@@ -1727,6 +1820,7 @@ const dispatchPlansToOwners = async (ctx, planDate, creatorId) => {
 
   let sentOk = 0;
   let sentFail = 0;
+  const sentPlanIds = [];
 
   for (const [assigneeIdStr, items] of Object.entries(grouped)) {
     const assigneeId = Number(assigneeIdStr);
@@ -1738,6 +1832,7 @@ const dispatchPlansToOwners = async (ctx, planDate, creatorId) => {
     try {
       await ctx.telegram.sendMessage(assigneeId, text, { parse_mode: 'HTML' });
       sentOk += 1;
+      sentPlanIds.push(...items.map((item) => item.id));
     } catch (e) {
       sentFail += 1;
       const msg = e?.response?.description || e?.message || String(e);
@@ -1749,10 +1844,12 @@ const dispatchPlansToOwners = async (ctx, planDate, creatorId) => {
 
   // mark sent
   try {
-    await supabase
-      .from('task_plans')
-      .update({ status: 'sent' })
-      .in('id', plans.map((p) => p.id));
+    if (sentPlanIds.length) {
+      await supabase
+        .from('task_plans')
+        .update({ status: 'sent' })
+        .in('id', sentPlanIds);
+    }
   } catch (e) {
     console.warn('⚠️ task_plans mark sent failed:', e?.message || e);
   }

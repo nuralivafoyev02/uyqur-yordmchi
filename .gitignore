@@ -4,3 +4,4 @@ dist/
 taskmode_migration.sql
 TASKMODE_SETUP.md
 CLICKUP_FIX_NOTES.md
+node_modules/
