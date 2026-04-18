@@ -80,7 +80,11 @@ const CLICKUP_TASK_FETCH_DELAYS_MS = parseDelayListEnv(
 );
 const CLICKUP_TASK_CREATED_FETCH_DELAYS_MS = parseDelayListEnv(
   process.env.CLICKUP_TASK_CREATED_FETCH_DELAYS_MS,
-  [0, 250, 600, 1100, 1700, 2600]
+  [0, 100, 250, 500, 900, 1400]
+);
+const CLICKUP_TASK_WITH_PAYLOAD_ASSIGNEE_FETCH_DELAYS_MS = parseDelayListEnv(
+  process.env.CLICKUP_TASK_WITH_PAYLOAD_ASSIGNEE_FETCH_DELAYS_MS,
+  [0, 80, 180, 350]
 );
 const usersCache = {
   value: null,
@@ -818,15 +822,17 @@ const getUserMapByClickUpAssignee = async (assignee) => {
   return null;
 };
 
-const fetchClickUpTaskForWebhook = async (taskId, event) => {
+const fetchClickUpTaskForWebhook = async (taskId, event, { requireAssignees = true } = {}) => {
   let task = null;
   let lastError = null;
-  const delays = (
-    event === 'taskCreated'
-    || event === 'taskAssigneeUpdated'
-  )
-    ? CLICKUP_TASK_CREATED_FETCH_DELAYS_MS
-    : CLICKUP_TASK_FETCH_DELAYS_MS;
+  const delays = requireAssignees
+    ? (
+      event === 'taskCreated'
+      || event === 'taskAssigneeUpdated'
+    )
+      ? CLICKUP_TASK_CREATED_FETCH_DELAYS_MS
+      : CLICKUP_TASK_FETCH_DELAYS_MS
+    : CLICKUP_TASK_WITH_PAYLOAD_ASSIGNEE_FETCH_DELAYS_MS;
 
   for (let i = 0; i < delays.length; i++) {
     const waitMs = delays[i];
@@ -835,7 +841,7 @@ const fetchClickUpTaskForWebhook = async (taskId, event) => {
     try {
       task = await clickupTaskRequest(taskId, 'GET', null, { source: `webhook:${event}` });
       const assignees = extractTaskAssignees(task);
-      if (assignees.length) {
+      if (!requireAssignees || assignees.length) {
         return { task, assignees, attempts: i + 1 };
       }
 
@@ -845,6 +851,7 @@ const fetchClickUpTaskForWebhook = async (taskId, event) => {
         attempt: i + 1,
         wait_ms: waitMs,
         delays_ms: delays,
+        require_assignees: requireAssignees,
       });
     } catch (err) {
       lastError = err;
@@ -859,6 +866,7 @@ const fetchClickUpTaskForWebhook = async (taskId, event) => {
       event,
       attempts: delays.length,
       delays_ms: delays,
+      require_assignees: requireAssignees,
       hint: 'Task yaratilganda assignee kechroq ko‘rinayotgan bo‘lishi mumkin. Zarur bo‘lsa CLICKUP_TASK_CREATED_FETCH_DELAYS_MS env bilan oshiring.',
     });
   }
@@ -1164,6 +1172,8 @@ const verifyTelegramSecret = (req) => {
 async function handleClickUpWebhook(req) {
   const payload = req.body || {};
   const { event, task_id } = payload;
+  const webhookAssignees = extractWebhookAssignees(payload);
+  const requireTaskAssignees = webhookAssignees.length === 0;
 
   if (!CLICKUP_EVENTS_TO_PROCESS.has(String(event || ''))) {
     logInfo('ClickUp webhook skipped: unsupported event', buildClickUpPayloadSummary(payload));
@@ -1179,8 +1189,7 @@ async function handleClickUpWebhook(req) {
     task,
     assignees: taskAssignees,
     attempts: taskFetchAttempts,
-  } = await fetchClickUpTaskForWebhook(task_id, event);
-  const webhookAssignees = extractWebhookAssignees(payload);
+  } = await fetchClickUpTaskForWebhook(task_id, event, { requireAssignees: requireTaskAssignees });
   const assignees = mergeClickUpAssignees(taskAssignees, webhookAssignees);
   if (!assignees?.length) {
     logWarn('ClickUp webhook skipped: assignee topilmadi', {
@@ -1188,6 +1197,9 @@ async function handleClickUpWebhook(req) {
       task_status: task?.status?.status || null,
       task_name: task?.name || null,
       task_fetch_attempts: taskFetchAttempts,
+      webhook_assignees: webhookAssignees.length,
+      task_assignees: taskAssignees.length,
+      require_task_assignees: requireTaskAssignees,
     });
     return { ok: true, skipped: true, reason: 'assignee_missing', event, task_id };
   }
@@ -1199,6 +1211,9 @@ async function handleClickUpWebhook(req) {
     task_status: task?.status?.status || null,
     assignee_ids: assignees.map((assignee) => getClickUpAssigneeId(assignee)).filter(Boolean),
     task_fetch_attempts: taskFetchAttempts,
+    webhook_assignees: webhookAssignees.length,
+    task_assignees: taskAssignees.length,
+    require_task_assignees: requireTaskAssignees,
   };
   logInfo('ClickUp webhook processing start', summary);
 
@@ -2648,6 +2663,7 @@ module.exports = async (req, res) => {
           clickup_custom_task_ids: CLICKUP_CUSTOM_TASK_IDS,
           clickup_task_fetch_delays_ms: CLICKUP_TASK_FETCH_DELAYS_MS,
           clickup_task_created_fetch_delays_ms: CLICKUP_TASK_CREATED_FETCH_DELAYS_MS,
+          clickup_task_with_payload_assignee_fetch_delays_ms: CLICKUP_TASK_WITH_PAYLOAD_ASSIGNEE_FETCH_DELAYS_MS,
           has_clickup_webhook_secret: Boolean(process.env.CLICKUP_WEBHOOK_SECRET),
           clickup_webhook_verify: process.env.CLICKUP_WEBHOOK_VERIFY === 'true',
           has_telegram_webhook_secret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
