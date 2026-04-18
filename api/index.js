@@ -94,6 +94,11 @@ const logWarn = (message, meta = null) => {
 const logError = (message, meta = null) => {
   console.error(`❌ ${message}${meta ? ` | ${safeJson(meta)}` : ''}`);
 };
+const isMissingRelationError = (error, relationName = '') => {
+  const message = String(error?.message || error || '').toLowerCase();
+  if (!message.includes('does not exist')) return false;
+  return relationName ? message.includes(String(relationName).toLowerCase()) : true;
+};
 
 const escapeHTML = (str) => {
   if (!str) return '';
@@ -485,6 +490,14 @@ const upsertTaskMessageRow = async ({
   );
 
   if (error) {
+    if (isMissingRelationError(error, 'clickup_task_messages')) {
+      logWarn('clickup_task_messages table missing, skip message state save', {
+        task_id,
+        assignee_id: assigneeKey,
+        telegram_id,
+      });
+      return { data: null, error };
+    }
     logError('Supabase upsert clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
   }
   return { data, error };
@@ -500,6 +513,13 @@ const getTaskMessageRow = async (task_id, assignee_id) => {
     .maybeSingle();
 
   if (error && error.code !== 'PGRST116') {
+    if (isMissingRelationError(error, 'clickup_task_messages')) {
+      logWarn('clickup_task_messages table missing, skip message state lookup', {
+        task_id,
+        assignee_id: assigneeKey,
+      });
+      return null;
+    }
     logError('Supabase select clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
   }
   return data || null;
@@ -528,6 +548,14 @@ const reserveTaskMessageRow = async ({ task_id, assignee_id, telegram_id, last_s
     .select('task_id');
 
   if (error) {
+    if (isMissingRelationError(error, 'clickup_task_messages')) {
+      logWarn('clickup_task_messages table missing, fallback to stateless ClickUp notify', {
+        task_id,
+        assignee_id: assigneeKey,
+        telegram_id,
+      });
+      return { reserved: true, error };
+    }
     logError('Supabase reserve clickup_task_messages error', {
       task_id,
       assignee_id: assigneeKey,
@@ -548,7 +576,16 @@ const deleteTaskMessageRow = async (task_id, assignee_id) => {
     .delete()
     .eq('task_id', task_id)
     .eq('assignee_id', assigneeKey);
-  if (error) logError('Supabase delete clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
+  if (error) {
+    if (isMissingRelationError(error, 'clickup_task_messages')) {
+      logWarn('clickup_task_messages table missing, skip message state delete', {
+        task_id,
+        assignee_id: assigneeKey,
+      });
+      return;
+    }
+    logError('Supabase delete clickup_task_messages error', { task_id, assignee_id: assigneeKey, error: serializeError(error) });
+  }
 };
 
 const getClickUpAssigneeId = (assignee) => normalizeAssigneeId(
@@ -616,7 +653,8 @@ const extractTaskAssignees = (task = {}) => {
 const getUserMapByClickUpAssignee = async (assignee) => {
   const assigneeId = getClickUpAssigneeId(assignee);
   const assigneeUsername = normalizeHandle(getClickUpAssigneeUsername(assignee));
-  const assigneeEmailHandle = normalizeHandle((getClickUpAssigneeEmail(assignee) || '').split('@')[0]);
+  const assigneeEmail = getClickUpAssigneeEmail(assignee);
+  const assigneeEmailHandle = normalizeHandle((assigneeEmail || '').split('@')[0]);
   const numericAssigneeId = assigneeId && /^-?\d+$/.test(assigneeId) ? Number(assigneeId) : null;
   const idCandidates = new Set(
     unique([
@@ -639,6 +677,12 @@ const getUserMapByClickUpAssignee = async (assignee) => {
     const rowUsername = normalizeHandle(row?.username);
     if (!rowUsername || !handleCandidates.has(rowUsername)) continue;
     if (row?.telegram_id) return { ...row, match_source: 'username' };
+  }
+
+  for (const row of users) {
+    const rowEmail = normalizeEmail(row?.email);
+    if (!rowEmail || !assigneeEmail || rowEmail !== assigneeEmail) continue;
+    if (row?.telegram_id) return { ...row, match_source: 'email' };
   }
 
   return null;
