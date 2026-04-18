@@ -452,6 +452,72 @@ const buildTaskmodeJobPayload = async (input) => {
   };
 };
 
+const getTaskmodeResultMeta = (value) => (
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {}
+);
+
+const getTaskmodeCleanupMeta = (resultMeta = {}, fallback = {}) => {
+  const meta = getTaskmodeResultMeta(resultMeta);
+  const toInt = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  return {
+    chat_id: toInt(meta.admin_chat_id) || toInt(fallback.chat_id),
+    source_message_id: toInt(meta.source_message_id) || toInt(fallback.source_message_id),
+    preview_message_id: toInt(meta.preview_message_id) || toInt(fallback.preview_message_id),
+  };
+};
+
+const deleteTelegramMessageSafe = async (telegram, chatId, messageId, meta = {}) => {
+  if (!chatId || !messageId) {
+    return { ok: false, skipped: true };
+  }
+
+  try {
+    await telegram.deleteMessage(chatId, messageId);
+    return { ok: true, skipped: false };
+  } catch (err) {
+    logWarn('Taskmode cleanup delete failed', {
+      chat_id: chatId,
+      message_id: messageId,
+      ...meta,
+      error: serializeError(err),
+    });
+    return { ok: false, skipped: false, error: err };
+  }
+};
+
+const cleanupTaskmodeMessages = async (
+  telegram,
+  resultMeta = {},
+  fallback = {},
+  { deleteSource = true, deletePreview = true } = {}
+) => {
+  const cleanup = getTaskmodeCleanupMeta(resultMeta, fallback);
+  const messageIds = unique([
+    deleteSource ? cleanup.source_message_id : null,
+    deletePreview ? cleanup.preview_message_id : null,
+  ].filter(Boolean));
+
+  let deleted = 0;
+  for (const messageId of messageIds) {
+    const result = await deleteTelegramMessageSafe(telegram, cleanup.chat_id, messageId, {
+      source: 'taskmode_cleanup',
+    });
+    if (result.ok) deleted += 1;
+  }
+
+  return {
+    ...cleanup,
+    deleted_count: deleted,
+    attempted_count: messageIds.length,
+  };
+};
+
 // ====== CLICKUP TASK STATUS + TG MESSAGE SYNC (FIX) ======
 // Status nomlarini normallashtiramiz (ClickUp workspace'da custom bo'lishi mumkin)
 const norm = (s) => String(s || '').toLowerCase().trim();
@@ -1835,7 +1901,7 @@ bot.action(/taskmode_confirm_(\d+)/, async (ctx) => {
   const jobId = Number(ctx.match[1]);
   const { data: job, error } = await supabase
     .from('taskmode_jobs')
-    .select('id, creator_id, status, notifications')
+    .select('id, creator_id, status, notifications, result_meta')
     .eq('id', jobId)
     .maybeSingle();
 
@@ -1850,11 +1916,13 @@ bot.action(/taskmode_confirm_(\d+)/, async (ctx) => {
   }
 
   if (!Array.isArray(job.notifications) || !job.notifications.length) {
+    const jobMeta = getTaskmodeResultMeta(job.result_meta);
     await supabase
       .from('taskmode_jobs')
       .update({
         status: 'blocked',
         result_meta: {
+          ...jobMeta,
           sent_ok: 0,
           sent_fail: 0,
           failed: [],
@@ -1873,6 +1941,7 @@ Hech kimga yuborilmadi, chunki tasdiqlangan draft ichida haqiqiy Telegram qabul 
   }
 
   await ctx.answerCbQuery('Yuborilmoqda...');
+  const jobMeta = getTaskmodeResultMeta(job.result_meta);
 
   let ok = 0;
   let fail = 0;
@@ -1897,18 +1966,45 @@ Hech kimga yuborilmadi, chunki tasdiqlangan draft ichida haqiqiy Telegram qabul 
     }
   }
 
+  const cleanupInfo = await cleanupTaskmodeMessages(
+    ctx.telegram,
+    jobMeta,
+    {
+      chat_id: ctx.chat?.id,
+      preview_message_id: ctx.callbackQuery?.message?.message_id,
+    },
+    {
+      deleteSource: true,
+      deletePreview: fail === 0,
+    }
+  );
+
   await supabase
     .from('taskmode_jobs')
     .update({
       status: 'sent',
       sent_at: new Date().toISOString(),
-      result_meta: { sent_ok: ok, sent_fail: fail, failed },
+      result_meta: {
+        ...jobMeta,
+        sent_ok: ok,
+        sent_fail: fail,
+        failed,
+        cleanup_deleted_count: cleanupInfo.deleted_count,
+        cleanup_attempted_count: cleanupInfo.attempted_count,
+      },
     })
     .eq('id', jobId);
 
+  if (fail === 0) {
+    return;
+  }
+
   let text = `✅ <b>Topshiriqlar yuborildi</b>\n\nYuborildi: <b>${ok}</b>\nXato: <b>${fail}</b>`;
   if (failed.length) {
-    text += `\n\n<b>Xatolar:</b>\n${failed.map((x, i) => `${i + 1}. ${escapeHTML(x)}`).join('\n')}`;
+    text += `\n\n<b>Xatolar:</b>\n${failed.slice(0, 8).map((x, i) => `${i + 1}. ${escapeHTML(x)}`).join('\n')}`;
+    if (failed.length > 8) {
+      text += `\n… yana ${failed.length - 8} ta xato bor`;
+    }
   }
 
   return ctx.editMessageText(text.slice(0, 3900), { parse_mode: 'HTML' });
@@ -1920,7 +2016,7 @@ bot.action(/taskmode_cancel_(\d+)/, async (ctx) => {
   const jobId = Number(ctx.match[1]);
   const { data: job } = await supabase
     .from('taskmode_jobs')
-    .select('id, creator_id, status')
+    .select('id, creator_id, status, result_meta')
     .eq('id', jobId)
     .maybeSingle();
 
@@ -1931,13 +2027,24 @@ bot.action(/taskmode_cancel_(\d+)/, async (ctx) => {
     return ctx.answerCbQuery('Bu draft allaqachon yakunlangan');
   }
 
+  const jobMeta = getTaskmodeResultMeta(job.result_meta);
   await supabase
     .from('taskmode_jobs')
-    .update({ status: 'cancelled' })
+    .update({
+      status: 'cancelled',
+      result_meta: {
+        ...jobMeta,
+        cancelled_at: new Date().toISOString(),
+      },
+    })
     .eq('id', jobId);
 
   await ctx.answerCbQuery('Bekor qilindi');
-  return ctx.editMessageText('❌ Taskmode rejimi bekor qilindi.');
+  await cleanupTaskmodeMessages(ctx.telegram, jobMeta, {
+    chat_id: ctx.chat?.id,
+    preview_message_id: ctx.callbackQuery?.message?.message_id,
+  });
+  return;
 });
 
 // ====== /tasks komandasi ======
@@ -2353,6 +2460,11 @@ bot.on('text', async (ctx) => {
             unresolved: payload.unresolved,
             source_count: payload.companies.length,
             status: 'draft',
+            result_meta: {
+              admin_chat_id: ctx.chat?.id || null,
+              source_message_id: ctx.message?.message_id || null,
+              preview_message_id: progress.message_id,
+            },
           },
         ])
         .select('id')
