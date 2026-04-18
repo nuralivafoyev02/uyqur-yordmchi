@@ -451,21 +451,127 @@ const buildTaskmodeJobPayload = async (input) => {
 // ====== CLICKUP TASK STATUS + TG MESSAGE SYNC (FIX) ======
 // Status nomlarini normallashtiramiz (ClickUp workspace'da custom bo'lishi mumkin)
 const norm = (s) => String(s || '').toLowerCase().trim();
+const CLICKUP_DONE_STATUS_ALIASES = new Set([
+  'closed',
+  'done',
+  'complete',
+  'completed',
+  'finished',
+  'resolved',
+  'yakunlandi',
+  'yopildi',
+]);
+const CLICKUP_PROCESS_STATUS_ALIASES = new Set([
+  'in progress',
+  'progress',
+  'doing',
+  'active',
+  'processing',
+  'jarayonda',
+]);
+const getClickUpStatusNameValue = (statusLike) => String(
+  typeof statusLike === 'object' && statusLike !== null
+    ? statusLike.status ?? statusLike.name ?? ''
+    : statusLike ?? ''
+).trim();
+const getClickUpStatusTypeValue = (statusLike) => String(
+  typeof statusLike === 'object' && statusLike !== null
+    ? statusLike.type ?? statusLike.status_type ?? ''
+    : ''
+).trim();
+const getTaskListId = (task) => String(
+  task?.list?.id
+  ?? task?.list_id
+  ?? ''
+).trim() || null;
+const simplifyClickUpStatuses = (items) => (items || []).map((item) => ({
+  name: getClickUpStatusNameValue(item),
+  type: norm(getClickUpStatusTypeValue(item)) || null,
+})).filter((item) => item.name);
 
 // Bizga 3 ta holat kerak: open | process | done
-const statusKeyOf = (statusRaw) => {
-  const s = norm(statusRaw);
+const statusKeyOf = (statusLike) => {
+  const s = norm(getClickUpStatusNameValue(statusLike));
+  const t = norm(getClickUpStatusTypeValue(statusLike));
   if (!s) return 'open';
-  if (s === norm(CLICKUP_STATUS_DONE)) return 'done';
-  if (s === norm(CLICKUP_STATUS_PROCESS)) return 'process';
+  if (t === 'closed' || t === 'done') return 'done';
+  if (s === norm(CLICKUP_STATUS_DONE) || CLICKUP_DONE_STATUS_ALIASES.has(s)) return 'done';
+  if (s === norm(CLICKUP_STATUS_PROCESS) || CLICKUP_PROCESS_STATUS_ALIASES.has(s)) return 'process';
   // boshqa custom statuslar bo'lsa ham OPEN deb tutamiz
   return 'open';
+};
+
+const fetchClickUpListStatuses = async (task) => {
+  const listId = getTaskListId(task);
+  if (!listId) return [];
+
+  try {
+    const list = await clickupRequest(`list/${encodeURIComponent(listId)}`);
+    return simplifyClickUpStatuses(list?.statuses || []);
+  } catch (err) {
+    logWarn('ClickUp list statuses fetch failed', {
+      task_id: task?.id || null,
+      list_id: listId,
+      error: serializeError(err),
+    });
+    return [];
+  }
+};
+
+const resolveClickUpTargetStatusName = async ({ task, action }) => {
+  const currentName = getClickUpStatusNameValue(task?.status);
+  const currentKey = statusKeyOf(task?.status);
+  const preferredName = action === 'process' ? CLICKUP_STATUS_PROCESS : CLICKUP_STATUS_DONE;
+  const statuses = await fetchClickUpListStatuses(task);
+  const exactPreferred = statuses.find((item) => norm(item.name) === norm(preferredName));
+
+  if (exactPreferred?.name) {
+    return { statusName: exactPreferred.name, availableStatuses: statuses, strategy: 'preferred_exact' };
+  }
+
+  if (action === 'done') {
+    const closedByType = statuses.find((item) => item.type === 'closed' && norm(item.name) !== norm(currentName));
+    if (closedByType?.name) {
+      return { statusName: closedByType.name, availableStatuses: statuses, strategy: 'closed_type' };
+    }
+
+    const closedByAlias = statuses.find((item) => CLICKUP_DONE_STATUS_ALIASES.has(norm(item.name)) && norm(item.name) !== norm(currentName));
+    if (closedByAlias?.name) {
+      return { statusName: closedByAlias.name, availableStatuses: statuses, strategy: 'closed_alias' };
+    }
+
+    if (currentKey === 'done' && currentName) {
+      return { statusName: currentName, availableStatuses: statuses, strategy: 'already_done' };
+    }
+  }
+
+  if (action === 'process') {
+    const processByAlias = statuses.find((item) => CLICKUP_PROCESS_STATUS_ALIASES.has(norm(item.name)) && norm(item.name) !== norm(currentName));
+    if (processByAlias?.name) {
+      return { statusName: processByAlias.name, availableStatuses: statuses, strategy: 'process_alias' };
+    }
+
+    const customOpen = statuses.find((item) =>
+      item.type !== 'closed'
+      && item.type !== 'done'
+      && norm(item.name) !== norm(currentName)
+    );
+    if (customOpen?.name) {
+      return { statusName: customOpen.name, availableStatuses: statuses, strategy: 'first_non_closed' };
+    }
+  }
+
+  return {
+    statusName: preferredName || null,
+    availableStatuses: statuses,
+    strategy: statuses.length ? 'env_fallback' : 'env_without_statuses',
+  };
 };
 
 const buildTaskText = (task) => {
   const st = (task?.status?.status || '').toUpperCase();
   return (
-    `📌 <b>Vazifa:</b>\n\n` +
+    `📌 <b>Sizga vazifa biriktirildi:</b>\n\n` +
     `<b>Nomi:</b> ${escapeHTML(task?.name || '')}\n` +
     `<b>Status:</b> ${escapeHTML(st)}\n\n` +
     `<a href="${task?.url}">ClickUp'da ochish</a>`
@@ -1463,14 +1569,49 @@ bot.command('send', async (ctx) => {
 // --- ACTIONS ---
 bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
   const [, action, taskId] = ctx.match;
-  const statusName = action === 'process' ? CLICKUP_STATUS_PROCESS : CLICKUP_STATUS_DONE;
 
   try {
+    const taskBefore = await clickupTaskRequest(taskId, 'GET', null, { source: `telegram_action:${action}:before_update` });
+    const currentKey = statusKeyOf(taskBefore?.status);
+    if (action === 'done' && currentKey === 'done') {
+      await ctx.answerCbQuery("Vazifa allaqachon yakunlangan");
+      return ctx.editMessageText(`✅ <b>Vazifa yakunlangan.</b>`, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...buildTaskKeyboard(taskId, 'done'),
+      });
+    }
+
+    const {
+      statusName,
+      availableStatuses,
+      strategy,
+    } = await resolveClickUpTargetStatusName({ task: taskBefore, action });
+
+    if (!statusName) {
+      logWarn('ClickUp target status could not be resolved', {
+        task_id: taskId,
+        action,
+        current_status: getClickUpStatusNameValue(taskBefore?.status),
+        available_statuses: availableStatuses,
+      });
+      return ctx.answerCbQuery("Xatolik: mos status topilmadi.");
+    }
+
+    logInfo('ClickUp status update requested', {
+      task_id: taskId,
+      action,
+      from_status: getClickUpStatusNameValue(taskBefore?.status),
+      target_status: statusName,
+      strategy,
+      available_statuses: availableStatuses,
+    });
+
     await clickupTaskRequest(taskId, 'PUT', { status: statusName }, { source: `telegram_action:${action}` });
 
     // Task'ni qayta olib kelib, TG xabarni ham update qilamiz (matn + tugmalar)
     const task = await clickupTaskRequest(taskId, 'GET', null, { source: `telegram_action:${action}:refetch` });
-    const key = statusKeyOf(task?.status?.status);
+    const key = statusKeyOf(task?.status);
 
     // Xabarni yangilash (Jarayonda bo'lsa: faqat Yakunlash; Done bo'lsa: tugmalar yo'q)
     if (action === 'done') {
@@ -1524,6 +1665,18 @@ bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
       });
     }
   } catch (err) {
+    if (err?.status === 400 && /status does not exist/i.test(String(err?.message || ''))) {
+      logWarn('ClickUp status update rejected by workspace statuses', {
+        task_id: taskId,
+        action,
+        configured_process_status: CLICKUP_STATUS_PROCESS,
+        configured_done_status: CLICKUP_STATUS_DONE,
+        error: serializeError(err),
+      });
+      await ctx.answerCbQuery("Xatolik: ClickUp status nomi mos emas.");
+      return;
+    }
+
     console.error('ClickUp status update error:', err?.message || err);
     await ctx.answerCbQuery("Xatolik: ClickUp API bilan bog'lanib bo'lmadi.");
   }
