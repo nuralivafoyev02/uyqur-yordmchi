@@ -42,6 +42,12 @@ const WEB_APP_URL = normalizeHttpUrl(
 // Optional: ClickUp status mapping (some workspaces use custom status names)
 const CLICKUP_STATUS_PROCESS = process.env.CLICKUP_STATUS_PROCESS || 'in progress';
 const CLICKUP_STATUS_DONE = process.env.CLICKUP_STATUS_DONE || 'closed';
+const CLICKUP_TEAM_ID = (() => {
+  const raw = process.env.CLICKUP_TEAM_ID || process.env.CLICKUP_WORKSPACE_ID || process.env.CLICKUP_TEAM;
+  const n = raw ? parseInt(String(raw), 10) : NaN;
+  return Number.isFinite(n) ? n : null;
+})();
+const CLICKUP_CUSTOM_TASK_IDS = String(process.env.CLICKUP_CUSTOM_TASK_IDS || '').toLowerCase() === 'true';
 
 const parseJSONEnv = (raw, fallback) => {
   if (!raw) return fallback;
@@ -53,11 +59,29 @@ const parseJSONEnv = (raw, fallback) => {
   }
 };
 
+const parseDelayListEnv = (raw, fallback) => {
+  if (!raw) return fallback;
+
+  const items = String(raw)
+    .split(',')
+    .map((item) => parseInt(item.trim(), 10))
+    .filter((item) => Number.isFinite(item) && item >= 0);
+
+  return items.length ? items : fallback;
+};
+
 const TASKMODE_COMPANY_OWNERS = parseJSONEnv(process.env.TASKMODE_COMPANY_OWNERS_JSON, {});
 const TASKMODE_ALLOWED_IDS = new Set([ADMIN_ID, ...TASK_PLANNERS]);
 const USER_CACHE_TTL_MS = 60 * 1000;
 const CLICKUP_EVENTS_TO_PROCESS = new Set(['taskCreated', 'taskUpdated', 'taskAssigneeUpdated', 'taskStatusUpdated']);
-const CLICKUP_TASK_FETCH_DELAYS_MS = [0, 250, 600, 1100, 1700];
+const CLICKUP_TASK_FETCH_DELAYS_MS = parseDelayListEnv(
+  process.env.CLICKUP_TASK_FETCH_DELAYS_MS,
+  [0, 250, 600, 1100, 1700]
+);
+const CLICKUP_TASK_CREATED_FETCH_DELAYS_MS = parseDelayListEnv(
+  process.env.CLICKUP_TASK_CREATED_FETCH_DELAYS_MS,
+  [0, 250, 600, 1100, 1700, 2600]
+);
 const usersCache = {
   value: null,
   expiresAt: 0,
@@ -691,34 +715,67 @@ const getUserMapByClickUpAssignee = async (assignee) => {
 const fetchClickUpTaskForWebhook = async (taskId, event) => {
   let task = null;
   let lastError = null;
+  const delays = (
+    event === 'taskCreated'
+    || event === 'taskAssigneeUpdated'
+  )
+    ? CLICKUP_TASK_CREATED_FETCH_DELAYS_MS
+    : CLICKUP_TASK_FETCH_DELAYS_MS;
 
-  for (let i = 0; i < CLICKUP_TASK_FETCH_DELAYS_MS.length; i++) {
-    const waitMs = CLICKUP_TASK_FETCH_DELAYS_MS[i];
+  for (let i = 0; i < delays.length; i++) {
+    const waitMs = delays[i];
     if (waitMs > 0) await delay(waitMs);
 
     try {
-      task = await clickupRequest(`task/${taskId}`);
+      task = await clickupTaskRequest(taskId, 'GET', null, { source: `webhook:${event}` });
       const assignees = extractTaskAssignees(task);
       if (assignees.length) {
         return { task, assignees, attempts: i + 1 };
       }
+
+      logInfo('ClickUp task fetched but assignees not ready yet', {
+        task_id: taskId,
+        event,
+        attempt: i + 1,
+        wait_ms: waitMs,
+        delays_ms: delays,
+      });
     } catch (err) {
       lastError = err;
       logError('ClickUp task fetch error', { task_id: taskId, attempt: i + 1, event, error: serializeError(err) });
-      if (i === CLICKUP_TASK_FETCH_DELAYS_MS.length - 1) throw err;
+      if (i === delays.length - 1) throw err;
     }
   }
 
   if (!extractTaskAssignees(task).length) {
-    logWarn('ClickUp task fetched but assignee topilmadi', { task_id: taskId, event, attempts: CLICKUP_TASK_FETCH_DELAYS_MS.length });
+    logWarn('ClickUp task fetched but assignee topilmadi', {
+      task_id: taskId,
+      event,
+      attempts: delays.length,
+      delays_ms: delays,
+      hint: 'Task yaratilganda assignee kechroq ko‘rinayotgan bo‘lishi mumkin. Zarur bo‘lsa CLICKUP_TASK_CREATED_FETCH_DELAYS_MS env bilan oshiring.',
+    });
   }
 
-  return { task, assignees: extractTaskAssignees(task), attempts: CLICKUP_TASK_FETCH_DELAYS_MS.length };
+  return { task, assignees: extractTaskAssignees(task), attempts: delays.length };
+};
+
+const buildClickUpEndpoint = (endpoint, query = null) => {
+  if (!query || typeof query !== 'object') return endpoint;
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value == null || value === '') continue;
+    params.set(key, String(value));
+  }
+  const qs = params.toString();
+  if (!qs) return endpoint;
+  return `${endpoint}${endpoint.includes('?') ? '&' : '?'}${qs}`;
 };
 
 // ClickUp API Helper
-const clickupRequest = async (endpoint, method = 'GET', body = null) => {
-  const url = `https://api.clickup.com/api/v2/${endpoint}`;
+const clickupRequest = async (endpoint, method = 'GET', body = null, query = null) => {
+  const resolvedEndpoint = buildClickUpEndpoint(endpoint, query);
+  const url = `https://api.clickup.com/api/v2/${resolvedEndpoint}`;
 
   const res = await fetch(url, {
     method,
@@ -745,12 +802,52 @@ const clickupRequest = async (endpoint, method = 'GET', body = null) => {
     const err = new Error(`ClickUp API error ${res.status}: ${msg}`);
     err.status = res.status;
     err.response = data;
-    err.endpoint = endpoint;
+    err.endpoint = resolvedEndpoint;
     err.method = method;
     throw err;
   }
 
   return data;
+};
+
+const clickupTaskRequest = async (taskId, method = 'GET', body = null, { source = 'unknown' } = {}) => {
+  const endpoint = `task/${encodeURIComponent(String(taskId || ''))}`;
+  const preferredQuery = CLICKUP_CUSTOM_TASK_IDS && CLICKUP_TEAM_ID
+    ? { custom_task_ids: true, team_id: CLICKUP_TEAM_ID }
+    : null;
+
+  try {
+    return await clickupRequest(endpoint, method, body, preferredQuery);
+  } catch (err) {
+    if (err?.status === 404 && !CLICKUP_TEAM_ID) {
+      logWarn('ClickUp task request got 404 and CLICKUP_TEAM_ID is not set', {
+        task_id: taskId,
+        method,
+        source,
+        hint: 'Agar workspace custom task id ishlatsa, CLICKUP_TEAM_ID va ixtiyoriy CLICKUP_CUSTOM_TASK_IDS=true ni qo‘ying.',
+      });
+    }
+
+    const shouldRetryWithCustomId = (
+      err?.status === 404
+      && !preferredQuery
+      && Boolean(CLICKUP_TEAM_ID)
+    );
+
+    if (!shouldRetryWithCustomId) throw err;
+
+    logWarn('ClickUp task request 404, retrying with custom_task_ids=true', {
+      task_id: taskId,
+      method,
+      source,
+      team_id: CLICKUP_TEAM_ID,
+    });
+
+    return clickupRequest(endpoint, method, body, {
+      custom_task_ids: true,
+      team_id: CLICKUP_TEAM_ID,
+    });
+  }
 };
 
 // --- Webhook signature helpers (optional, strict mode via env) ---
@@ -1369,10 +1466,10 @@ bot.action(/cu_status_(process|done)_(.+)/, async (ctx) => {
   const statusName = action === 'process' ? CLICKUP_STATUS_PROCESS : CLICKUP_STATUS_DONE;
 
   try {
-    await clickupRequest(`task/${taskId}`, 'PUT', { status: statusName });
+    await clickupTaskRequest(taskId, 'PUT', { status: statusName }, { source: `telegram_action:${action}` });
 
     // Task'ni qayta olib kelib, TG xabarni ham update qilamiz (matn + tugmalar)
-    const task = await clickupRequest(`task/${taskId}`);
+    const task = await clickupTaskRequest(taskId, 'GET', null, { source: `telegram_action:${action}:refetch` });
     const key = statusKeyOf(task?.status?.status);
 
     // Xabarni yangilash (Jarayonda bo'lsa: faqat Yakunlash; Done bo'lsa: tugmalar yo'q)
@@ -2393,6 +2490,11 @@ module.exports = async (req, res) => {
           has_supabase_url: Boolean(process.env.SUPABASE_URL),
           has_supabase_key: Boolean(process.env.SUPABASE_KEY),
           has_clickup_token: Boolean(process.env.CLICKUP_TOKEN),
+          has_clickup_team_id: Boolean(CLICKUP_TEAM_ID),
+          clickup_team_id: CLICKUP_TEAM_ID,
+          clickup_custom_task_ids: CLICKUP_CUSTOM_TASK_IDS,
+          clickup_task_fetch_delays_ms: CLICKUP_TASK_FETCH_DELAYS_MS,
+          clickup_task_created_fetch_delays_ms: CLICKUP_TASK_CREATED_FETCH_DELAYS_MS,
           has_clickup_webhook_secret: Boolean(process.env.CLICKUP_WEBHOOK_SECRET),
           clickup_webhook_verify: process.env.CLICKUP_WEBHOOK_VERIFY === 'true',
           has_telegram_webhook_secret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),

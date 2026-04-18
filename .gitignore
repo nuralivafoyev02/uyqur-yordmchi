@@ -1,5 +1,4 @@
 .env
-.env.example
 dist/
 taskmode_migration.sql
 TASKMODE_SETUP.md
