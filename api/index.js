@@ -764,10 +764,109 @@ const sendJson = (res, status, payload) => {
   return res.status(status).send(JSON.stringify(payload));
 };
 
+const getRequestUrl = (req) => {
+  try {
+    return new URL(req?.url || '/', 'http://localhost');
+  } catch {
+    return new URL('/', 'http://localhost');
+  }
+};
+
+const buildBodySummary = (body) => {
+  if (body == null) {
+    return { body_type: body === null ? 'null' : 'undefined' };
+  }
+
+  if (typeof body === 'string') {
+    return {
+      body_type: 'string',
+      body_length: body.length,
+      body_preview: truncate(body, 500),
+    };
+  }
+
+  if (Buffer.isBuffer(body)) {
+    return {
+      body_type: 'buffer',
+      body_length: body.length,
+      body_preview: truncate(body.toString('utf8'), 500),
+    };
+  }
+
+  if (Array.isArray(body)) {
+    return {
+      body_type: 'array',
+      item_count: body.length,
+      first_item_preview: truncate(safeJson(body[0] || null), 400),
+    };
+  }
+
+  if (typeof body === 'object') {
+    const keys = Object.keys(body);
+    return {
+      body_type: 'object',
+      body_keys: keys.slice(0, 20),
+      key_count: keys.length,
+      event: body?.event || null,
+      webhook_id: body?.webhook_id || null,
+      task_id: body?.task_id || null,
+      update_id: body?.update_id || null,
+      has_message: Boolean(body?.message),
+      has_callback_query: Boolean(body?.callback_query),
+    };
+  }
+
+  return {
+    body_type: typeof body,
+    body_preview: truncate(String(body), 500),
+  };
+};
+
+const looksLikeTelegramUpdate = (body) => Boolean(
+  body
+  && typeof body === 'object'
+  && (
+    body.update_id
+    || body.message
+    || body.edited_message
+    || body.callback_query
+    || body.inline_query
+    || body.my_chat_member
+    || body.chat_member
+  )
+);
+
+const detectWebhookSource = (req) => {
+  if (isClickUpWebhookRequest(req)) return 'clickup_like';
+  if (looksLikeTelegramUpdate(req?.body)) return 'telegram_like';
+  if ((req?.method || '').toUpperCase() === 'POST') return 'unknown_post';
+  return 'other';
+};
+
+const buildWebhookDebugHints = (req) => {
+  const url = getRequestUrl(req);
+  const host = getHeader(req, 'x-forwarded-host') || getHeader(req, 'host') || process.env.VERCEL_URL || null;
+  const proto = getHeader(req, 'x-forwarded-proto') || 'https';
+  const baseUrl = host ? `${proto}://${host}` : null;
+
+  return {
+    request_path: url.pathname,
+    request_query: url.search || '',
+    public_base_url: baseUrl,
+    accepted_post_paths: ['/api', '/api/*'],
+    suggested_clickup_webhook_url: baseUrl ? `${baseUrl}/api` : null,
+    suggested_healthcheck_url: baseUrl ? `${baseUrl}/api?job=health` : null,
+  };
+};
+
 const getRequestMeta = (req) => ({
   method: req?.method || null,
   url: req?.url || null,
+  path: getRequestUrl(req).pathname,
+  host: getHeader(req, 'x-forwarded-host') || getHeader(req, 'host') || null,
+  forwarded_proto: getHeader(req, 'x-forwarded-proto') || null,
   content_type: getHeader(req, 'content-type') || null,
+  content_length: getHeader(req, 'content-length') || null,
   has_clickup_signature: Boolean(getHeader(req, 'x-signature')),
   has_telegram_secret: Boolean(getHeader(req, 'x-telegram-bot-api-secret-token')),
   user_agent: getHeader(req, 'user-agent') || null,
@@ -2272,9 +2371,17 @@ bot.command('top', async (ctx) => {
 
 // ====== SERVER LOGIC ======
 module.exports = async (req, res) => {
-  const url = new URL(req.url, 'http://localhost');
+  const url = getRequestUrl(req);
   const job = url.searchParams.get('job');
   const requestMeta = getRequestMeta(req);
+  const detectedSource = detectWebhookSource(req);
+  const bodySummary = buildBodySummary(req.body);
+
+  logInfo('HTTP request received', {
+    request: requestMeta,
+    detected_source: detectedSource,
+    body: bodySummary,
+  });
 
   if (req.method === 'GET' && job) {
     try {
@@ -2291,6 +2398,9 @@ module.exports = async (req, res) => {
           has_telegram_webhook_secret: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
           telegram_webhook_verify: process.env.TELEGRAM_WEBHOOK_VERIFY === 'true',
           request: requestMeta,
+          webhook_debug: buildWebhookDebugHints(req),
+          body_example_summary: bodySummary,
+          note: "Agar ClickUp'dan task yaratganda Vercel loglarda 'HTTP request received' ham chiqmasa, webhook bu deploy'ga yetib kelmayapti.",
           now: new Date().toISOString(),
         });
       }
@@ -2337,6 +2447,20 @@ module.exports = async (req, res) => {
       }
     }
 
+    if (!looksLikeTelegramUpdate(req.body)) {
+      logWarn('POST request matched neither ClickUp nor Telegram payload shape', {
+        request: requestMeta,
+        detected_source: detectedSource,
+        body: bodySummary,
+        debug: buildWebhookDebugHints(req),
+      });
+    } else {
+      logInfo('Incoming Telegram-like webhook', {
+        request: requestMeta,
+        body: bodySummary,
+      });
+    }
+
     try {
       const tgOk = verifyTelegramSecret(req);
       if (!tgOk) {
@@ -2362,5 +2486,9 @@ module.exports = async (req, res) => {
     }
   }
 
+  logInfo('Request finished with default response', {
+    request: requestMeta,
+    detected_source: detectedSource,
+  });
   res.status(200).send('Bot is active!');
 };
